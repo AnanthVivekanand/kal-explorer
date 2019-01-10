@@ -1,0 +1,18 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+request = "*"
+peewee = "*"
+psycopg2 = "*"
+gevent = "*"
+8f737f3 = {file = "https://github.com/petertodd/python-bitcoinlib/archive/master.zip"}
+"370ec80" = {file = "https://github.com/Simplexum/python-bitcointx/archive/master.zip"}
+plyvel = "*"
+
+[requires]
+python_version = "3.7"
