@@ -73,7 +73,6 @@ class ChainDb(object):
         # print(block.nNonce)
         # print(len(block.serialize())) # size
         # raise
-
         with self.db.write_batch(transaction=True) as wb:
             wb.put(('block:%s' % bHash).encode(), json.dumps({
                 'merkle_root': b2lx(block.hashMerkleRoot), # save merkle root as hex string
@@ -85,6 +84,7 @@ class ChainDb(object):
                 'nonce': block.nNonce,
                 'size': len(block.serialize()),
                 'hash': bHash,
+                'coinbase': str(block.vtx[0].vin[0].scriptSig),
             }).encode())
             for tx in block.vtx:
                 txid = b2lx(tx.GetHash())

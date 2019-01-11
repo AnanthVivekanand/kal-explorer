@@ -17,7 +17,7 @@ class Block(BaseModel):
 	version = BlobField()
 	bits = BlobField()
 	nonce = BigIntegerField()
-
+	coinbase = BlobField()
 
 class Transaction(BaseModel):
 	txid = CharField(max_length=64, unique=True, index=True)
