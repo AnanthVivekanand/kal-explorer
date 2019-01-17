@@ -15,6 +15,8 @@ from bitcoin.messages import msg_version, msg_ping, msg_verack, msg_getaddr, mes
 from bitcoin.net import CInv
 from bitcoin.core import lx, b2lx
 from chaindb import ChainDb
+from bitcoin.core.script import CScript
+
 
 PROTO_VERSION = 70002
 MIN_PROTO_VERSION = 70002
@@ -156,7 +158,7 @@ class NodeConn(Greenlet):
             gd = msg_getdata(self.ver_send)
             inv = CInv()
             inv.type = 2
-            inv.hash = lx('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')
+            inv.hash = lx('cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7')
             gd.inv.append(inv)
             self.send_message(gd)
         elif our_height < self.remote_height:
@@ -209,8 +211,8 @@ class NodeConn(Greenlet):
                 self.send_message(want)
 
         elif message.command == b"block":
-            self.chaindb.putblock(message.block)
             bhash = b2lx(message.block.GetHash())
+            self.chaindb.putblock(message.block)
             self.last_block_rx = time.time()
             if self.last_want == 0:
                 gevent.spawn(self.send_getblocks)
@@ -219,6 +221,18 @@ class NodeConn(Greenlet):
 
         elif message.command == b"getheaders":
             self.getheaders(message)
+
+        # elif message.command == b'tx':
+        #      for idx, vout in enumerate(message.tx.vout):
+        #         script = vout.scriptPubKey
+        #         if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
+        #             continue
+        #         script = CScript(vout.scriptPubKey)
+        #         if script.is_unspendable():
+        #             print("Unspendable %s" % vout.scriptPubKey)
+        #             if vout.scriptPubKey[:4] == b'j\x07\xfe\xab':
+        #                 print(vout.scriptPubKey[4:].decode('utf-8'))
+        #             continue
 
         last_blkmsg = time.time() - self.last_block_rx
         if last_blkmsg > 5:
@@ -287,12 +301,23 @@ class CoreChainParams(bitcointx.core.CoreChainParams):
 
 class GRLCParams(CoreChainParams):
     RPC_PORT = 42075
+    NETMAGIC = b"\xd2\xc6\xb6\xdb"
     BASE58_PREFIXES = {'PUBKEY_ADDR':38,
                        'SCRIPT_ADDR':50,
                        'SECRET_KEY' :176,
                        'EXTENDED_PUBKEY': b'\x04\x88\xb2\x1e',
                        'EXTENDED_PRIVKEY': b'\x04\x88\xad\xe4'}
     BECH32_HRP = 'grlc'
+
+class TUXParams(CoreChainParams):
+    RPC_PORT = 42072
+    NETMAGIC = b"\xfc\xc5\xbf\xda"
+    BASE58_PREFIXES = {'PUBKEY_ADDR':65,
+                       'SCRIPT_ADDR':64,
+                       'SECRET_KEY' :193,
+                       'EXTENDED_PUBKEY': b'\x04\x88\xb2\x1e',
+                       'EXTENDED_PRIVKEY': b'\x04\x88\xad\xe4'}
+    BECH32_HRP = 'tux'
 
 if __name__ == "__main__":
     logger = logging.getLogger("sync")
@@ -307,18 +332,14 @@ if __name__ == "__main__":
     logger.addHandler(ch)
     mempool = None
     chaindb = ChainDb(logger)
-    netmagic = b"\xd2\xc6\xb6\xdb"
-    bitcoin.params.MESSAGE_START = netmagic
-    prefixes = {
-        'PUBKEY_ADDR': 38,
-        'SCRIPT_ADDR': 50,
-        'SECRET_KEY': 176,
-    }
-    bitcoin.params.BASE58_PREFIXES = prefixes
-    bitcointx.SelectAlternativeParams(CoreChainParams, GRLCParams)
+    P = TUXParams
+    params = P()
+    bitcoin.params.MESSAGE_START = params.NETMAGIC
+    bitcoin.params.BASE58_PREFIXES = params.BASE58_PREFIXES
+    bitcointx.SelectAlternativeParams(CoreChainParams, P)
     threads = []
     peermgr = PeerManager(logger, mempool, chaindb)
-    c = peermgr.add('95.179.202.122', 42069)
+    c = peermgr.add('45.77.228.139', 42071)
 
     threads.append(c)
 

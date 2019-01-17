@@ -1,7 +1,7 @@
 from peewee import *
 from playhouse.postgres_ext import BinaryJSONField
 
-db = PostgresqlDatabase('garlicoin', user='postgres', password='postgres', host='localhost', port=5432)
+db = PostgresqlDatabase('tuxcoin', user='postgres', password='postgres', host='localhost', port=5432)
 
 class BaseModel(Model):
 	class Meta:
@@ -12,17 +12,29 @@ class Block(BaseModel):
 	hash = CharField(max_length=64, unique=True)
 	timestamp = DateTimeField()
 	merkle_root = CharField(max_length=64, unique=True)
+	tx = BinaryJSONField()
 	difficulty = FloatField()
 	size = IntegerField()
 	version = BlobField()
 	bits = BlobField()
 	nonce = BigIntegerField()
 	coinbase = BlobField()
+	tx_count = IntegerField()
+
 
 class Transaction(BaseModel):
 	txid = CharField(max_length=64, unique=True, index=True)
+	block = CharField(max_length=64)
+	timestamp = DateTimeField()
 	vin = BinaryJSONField()
+	addresses_in = BinaryJSONField()
+	addresses_out = BinaryJSONField()
 	vout = BinaryJSONField()
+	input_value = BigIntegerField()
+	output_value = BigIntegerField()
+
+class Message(BaseModel):
+	message = TextField()
 
 class AddressChanges(BaseModel):
 	address = TextField(index=True)
@@ -33,4 +45,4 @@ class Address(BaseModel):
 	balance = BigIntegerField()
 
 db.connect()
-db.create_tables([Block, Transaction, Address, AddressChanges])
+db.create_tables([Block, Transaction, Address, AddressChanges, Message])
