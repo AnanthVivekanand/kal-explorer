@@ -1,4 +1,5 @@
 
+import string
 import struct
 import os, sys
 import bitcoin
@@ -15,12 +16,16 @@ from bitcoin.wallet import CBitcoinAddress
 from bitcoin.core.script import CScript
 from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
 
-
+class TxIdx(object):
+    def __init__(self, blkhash, spentmask=0):
+        self.blkhash = blkhash
+        self.spentmask = spentmask
 
 class ChainDb(object):
 
-    def __init__(self, log):
+    def __init__(self, log, mempool):
         self.log = log
+        self.mempool = mempool
         self.utxo_changes = 0
         self.cache = Cache()
         self.cache.clear()
@@ -141,6 +146,79 @@ class ChainDb(object):
                 if blocks:
                     Block.insert_many(blocks).execute()
 
+    def parse_vin(self, wb, tx, txid, tx_data, vin, idx):
+        if tx.is_coinbase() and idx == 0:
+            tx_data["vin"].append({"address": None, "value": 0})
+            tx_data["addresses_in"][None] = 0
+            return
+        # TODO mark utxo as spent, don't remove
+        preaddress, prevalue = self.poputxo(wb, b2lx(vin.prevout.hash), vin.prevout.n)
+        self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, wb)
+        tx_data["vin"].append({"address": preaddress, "value": prevalue})
+        tx_data["input_value"] += prevalue
+        if preaddress in tx_data["addresses_in"]:
+            tx_data["addresses_in"][preaddress] += prevalue
+        else:
+            tx_data["addresses_in"][preaddress] = prevalue
+        if preaddress in self.address_changes:
+            self.address_changes[preaddress] -= prevalue
+        else:
+            self.address_changes[preaddress] = -prevalue
+
+    def parse_vout(self, tx, txid, tx_data, vout, idx):
+        script = vout.scriptPubKey
+        if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
+            return
+        try:
+            script = CScript(vout.scriptPubKey)
+            if script.is_unspendable():
+                print("Unspendable %s" % vout.scriptPubKey)
+                if vout.scriptPubKey[2:4] == b'\xfe\xab':
+                    m = vout.scriptPubKey[4:].decode('utf-8')
+                    Message.create(message=m)
+                return
+            address = str(TX_CBitcoinAddress.from_scriptPubKey(script))
+        except:
+            print('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
+            return
+        value = vout.nValue
+        self.pututxo(txid, idx, address, value)
+        tx_data["vout"].append({"address": address, "value": value})
+        if address in tx_data["addresses_out"]:
+            tx_data["addresses_out"][address] += value
+        else:
+            tx_data["addresses_out"][address] = value
+        tx_data["output_value"] += value
+        # TODO utxo database
+        self.utxo_changes += 1
+        if address in self.address_changes:
+            self.address_changes[address] += value
+        else:
+            self.address_changes[address] = value
+
+    def parse_tx(self, txid, wb, timestamp, bHash, tx):
+        txid = b2lx(tx.GetHash())
+        tx_data = {"vout": [], "vin": [], "input_value": 0, "output_value": 0, "block": bHash, "addresses_in": {}, "addresses_out": {}, "timestamp": timestamp}
+        for idx, vin in enumerate(tx.vin):
+            self.parse_vin(wb, tx, txid, tx_data, vin, idx)
+        for idx, vout in enumerate(tx.vout):
+            self.parse_vout(tx, txid, tx_data, vout, idx)
+        wb.put(('transaction:%s' % txid).encode(), json.dumps(tx_data).encode())
+        self.transaction_change_count += 1
+
+    def parse_vtx(self, vtx, wb, timestamp, bHash):
+        neverseen = 0
+        for tx in vtx:
+            txid = b2lx(tx.GetHash())
+
+            if not self.mempool.remove(txid):
+                neverseen += 1
+            txidx = TxIdx(b2lx(bHash))
+            if not self.puttxidx(txid, txidx, batch=wb):
+                self.log.warn("TxIndex failed %s" % (txid,))
+                return False
+            self.parse_tx(txid, wb, timestamp, b2lx(bHash), tx)
+
     def putoneblock(self, block, initsync=True):
         if block.hashPrevBlock != self.gettophash():
             print("Cannot connect block to chain %s %s" % (b2lx(block.GetHash()), b2lx(self.gettophash())))
@@ -165,58 +243,7 @@ class ChainDb(object):
                 'tx': list(map(lambda tx : b2lx(tx.GetHash()), block.vtx))
             }).encode())
             txs = {}
-            for tx in block.vtx:
-                txid = b2lx(tx.GetHash())
-                tx_data = {"vout": [], "vin": [], "input_value": 0, "output_value": 0, "block": bHash, "addresses_in": {}, "addresses_out": {}, "timestamp": timestamp}
-                for idx, vout in enumerate(tx.vout):
-                    script = vout.scriptPubKey
-                    if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
-                        continue
-                    try:
-                        script = CScript(vout.scriptPubKey)
-                        if script.is_unspendable():
-                            print("Unspendable %s" % vout.scriptPubKey)
-                            if vout.scriptPubKey[2:4] == b'\xfe\xab':
-                                m = vout.scriptPubKey[4:].decode('utf-8')
-                                Message.create(message=m)
-                            continue
-                        address = str(TX_CBitcoinAddress.from_scriptPubKey(script))
-                    except:
-                        print('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
-                        continue
-                    value = vout.nValue
-                    self.pututxo(txid, idx, address, value)
-                    tx_data["vout"].append({"address": address, "value": value})
-                    if address in tx_data["addresses_out"]:
-                        tx_data["addresses_out"][address] += value
-                    else:
-                        tx_data["addresses_out"][address] = value
-                    tx_data["output_value"] += value
-                    # TODO utxo database
-                    self.utxo_changes += 1
-                    if address in self.address_changes:
-                        self.address_changes[address] += value
-                    else:
-                        self.address_changes[address] = value
-                for idx, vin in enumerate(tx.vin):
-                    if tx.is_coinbase() and idx == 0:
-                        tx_data["vin"].append({"address": None, "value": 0})
-                        tx_data["addresses_in"][None] = 0
-                        continue
-                    # TODO mark utxo as spent, don't remove
-                    preaddress, prevalue = self.poputxo(wb, b2lx(vin.prevout.hash), vin.prevout.n)
-                    tx_data["vin"].append({"address": preaddress, "value": prevalue})
-                    tx_data["input_value"] += prevalue
-                    if preaddress in tx_data["addresses_in"]:
-                        tx_data["addresses_in"][preaddress] += prevalue
-                    else:
-                        tx_data["addresses_in"][preaddress] = prevalue
-                    if preaddress in self.address_changes:
-                        self.address_changes[preaddress] -= prevalue
-                    else:
-                        self.address_changes[preaddress] = -prevalue
-                wb.put(('transaction:%s' % txid).encode(), json.dumps(tx_data).encode())
-                self.transaction_change_count += 1
+            self.parse_vtx(block.vtx, wb, timestamp, block.GetHash())
             with self.db.write_batch(transaction=True) as addressBatch:
                 for key, value in self.address_changes.items():
                     temp = {'address': key, 'balance_change': value}
@@ -245,10 +272,73 @@ class ChainDb(object):
         # if not self.have_prevblock(block):
         # 	self.orphans[block.sha256] = True
         # 	self.orphan_deps[block.hashPrevBlock] = block
-        # 	self.log.write("Orphan block %064x (%d orphans)" % (block.sha256, len(self.orphan_deps)))
+        # 	self.log.info("Orphan block %064x (%d orphans)" % (block.sha256, len(self.orphan_deps)))
         # 	return False
     def putblock(self, block):
         if self.haveblock(block.GetHash(), True):
-            self.log.write("Duplicate block %064x submitted" % (block.GetHash(), ))
+            self.log.info("Duplicate block %064x submitted" % (block.GetHash(), ))
             return False
         return self.putoneblock(block)
+
+    def puttxidx(self, txhash, txidx, spend=False, batch=None):
+        ser_txhash = int(txhash, 16)
+        self.db.get(('tx:'+txhash).encode())
+        old_txidx = self.gettxidx(txhash)
+        if old_txidx and not spend:
+            self.log.warn("overwriting duplicate TX %064x, height %d, oldblk %s, oldspent %x, newblk %s newspent %x" % (ser_txhash, 0, old_txidx.blkhash, old_txidx.spentmask, txidx.blkhash, txidx.spentmask))
+        batch = self.db if batch is not None else batch
+        value = (txidx.blkhash + ' ' + str(txidx.spentmask)).encode()
+        batch.put(('tx:' + txhash).encode(), value)
+
+        return True
+
+    def gettxidx(self, txhash):
+        ser_value = self.db.get(('tx:'+txhash).encode())
+        if not ser_value:
+            return None
+        ser_value = ser_value.decode('utf-8')
+
+        pos = ser_value.find(' ')
+
+        txidx = TxIdx(ser_value[:pos])
+        # txidx.blkhash = int(, 16)
+        txidx.spentmask = int(ser_value[pos+1], 16)
+
+        return txidx
+
+    def spend_txout(self, txhash, n_idx, batch=None):
+        txidx = self.gettxidx(txhash)
+        if txidx is None:
+            return False
+        txidx.spentmask |= (1 << n_idx)
+        self.puttxidx(txhash, txidx, spend=True, batch=batch)
+
+        return True
+
+    def txout_spent(self, txout):
+        txidx = self.gettxidx(b2lx(txout.hash))
+        if txidx is None:
+            return None
+
+        if txout.n > 100000:	# outpoint index sanity check
+            return None
+
+        if txidx.spentmask & (1 << txout.n):
+            return True
+        return False
+
+    def tx_is_orphan(self, tx):
+
+        for txin in tx.vin:
+            rc = self.txout_spent(txin.prevout)
+            if rc is None:		# not found: orphan
+                try:
+                    txfrom = self.mempool.pool[b2lx(txin.prevout.hash)]
+                except:
+                    return True
+                if txin.prevout.n >= len(txfrom.vout):
+                    return None
+            if rc is True:		# spent? strange
+                return None
+
+        return False

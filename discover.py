@@ -12,13 +12,13 @@ from gevent import Greenlet
 import bitcoin
 import bitcointx
 from bitcoin.messages import (msg_version, msg_ping, msg_verack, msg_getaddr,
-messagemap, msg_getdata, msg_getblocks, msg_headers, msg_getheaders, msg_addr, 
+messagemap, msg_getdata, msg_getblocks, msg_headers, msg_getheaders, msg_addr,
 msg_pong)
 from bitcoin.net import CInv
 from bitcoin.core import lx, b2lx
 from chaindb import ChainDb
 from bitcoin.core.script import CScript
-from mempool import MemPool
+
 
 PROTO_VERSION = 70002
 MIN_PROTO_VERSION = 70002
@@ -57,7 +57,6 @@ class NodeConn(Greenlet):
         Greenlet.__init__(self)
         self.dstaddr = dstaddr
         self.dstport = dstport
-        self.mempool = mempool
         self.log = log
         self.chaindb = chaindb
         self.sock = gevent.socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,6 +70,7 @@ class NodeConn(Greenlet):
         self.remote_height = -1
         self.last_want = 0
         self.addresses_seen = []
+        self.peermgr = peermgr
 
         self.hash_continue = None
 
@@ -153,28 +153,6 @@ class NodeConn(Greenlet):
     def send_getaddr(self):
         self.send_message(msg_getaddr())
 
-    def send_getblocks(self, timecheck=True):
-        if not self.getblocks_ok:
-            return
-        now = time.time()
-        # if timecheck and (now - self.last_getblocks) < 1:
-        #     return
-        self.last_getblocks = now
-
-        our_height = self.chaindb.getheight()
-        if our_height < 0:
-            gd = msg_getdata(self.ver_send)
-            inv = CInv()
-            inv.type = 2
-            inv.hash = lx('cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7')
-            gd.inv.append(inv)
-            self.send_message(gd)
-        elif our_height < self.remote_height:
-            gb = msg_getblocks(self.ver_send)
-            if our_height >= 0:
-                gb.locator.vHave.append(self.chaindb.gettophash())
-            self.send_message(gb)
-
     def got_message(self, message):
         gevent.sleep()
 
@@ -193,9 +171,11 @@ class NodeConn(Greenlet):
 
             self.remote_height = message.nStartingHeight
             self.send_message(msg_verack(self.ver_send))
-            # if self.ver_send >= CADDR_TIME_VERSION:
-                # self.send_message(msg_getaddr(self.ver_send))
-            self.send_getblocks()
+
+            if self.ver_send >= CADDR_TIME_VERSION:
+                self.send_message(msg_getaddr(self.ver_send))
+            
+            # self.send_getblocks()
 
         elif message.command == b'ping':
             if self.ver_send > BIP0031_VERSION:
@@ -204,7 +184,7 @@ class NodeConn(Greenlet):
         elif message.command == b"verack":
             self.ver_recv = self.ver_send
             self.send_message(msg_addr())
-            # self.send_getaddr()
+            self.send_getaddr()
 
         elif message.command == b"inv":
 
@@ -225,55 +205,20 @@ class NodeConn(Greenlet):
             if len(want.inv):
                 self.send_message(want)
 
-        elif message.command == b"tx":
-            if self.chaindb.tx_is_orphan(message.tx):
-                self.log.info("MemPool: Ignoring orphan TX %s" % (b2lx(message.tx.GetHash()),))
-            # elif not self.chaindb.tx_signed(message.tx, None, True):
-            #     self.log.info("MemPool: Ignoring failed-sig TX %s" % (b2lx(message.tx.GetHash()),))
-            else:
-                self.mempool.add(message.tx)
-
-        elif message.command == b"block":
-            bhash = b2lx(message.block.GetHash())
-            self.chaindb.putblock(message.block)
-            self.last_block_rx = time.time()
-            if self.last_want == 0:
-                gevent.spawn(self.send_getblocks)
-            elif bhash == b2lx(self.last_want):
-                gevent.spawn(self.send_getblocks)
-
-        elif message.command == b"getheaders":
-            self.getheaders(message)
-        # elif message.command == b"addr":
-            # if len(message.addrs) == 1:
-            #     gevent.spawn(self.send_getblocks)
-            # for addr in message.addrs:
-            #     host = '%s:%s' % (addr.ip, addr.port)
-            #     if host not in self.addresses_seen:
-            #         self.addresses_seen.append(host)
-
-        # elif message.command == b'tx':
-        #      for idx, vout in enumerate(message.tx.vout):
-        #         script = vout.scriptPubKey
-        #         if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
-        #             continue
-        #         script = CScript(vout.scriptPubKey)
-        #         if script.is_unspendable():
-        #             print("Unspendable %s" % vout.scriptPubKey)
-        #             if vout.scriptPubKey[:4] == b'j\x07\xfe\xab':
-        #                 print(vout.scriptPubKey[4:].decode('utf-8'))
-        #             continue
-
-        last_blkmsg = time.time() - self.last_block_rx
-        if last_blkmsg > 5:
-            self.send_getblocks()
-
-    def getheaders(self, message):
-        msg = msg_getheaders()
-        msg.nVersion = PROTO_VERSION
-        # msg.vHave = [bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')]
-        # msg.hashstop = bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')
-        self.send_message(msg)
+        # elif message.command == b"block":
+        #     bhash = b2lx(message.block.GetHash())
+        #     self.chaindb.putblock(message.block)
+        #     self.last_block_rx = time.time()
+        #     if self.last_want == 0:
+        #         gevent.spawn(self.send_getblocks)
+        #     elif bhash == b2lx(self.last_want):
+        #         gevent.spawn(self.send_getblocks)
+        elif message.command == b"addr":
+            self.peermgr.new_addrs(message.addrs)
+            for addr in message.addrs:
+                self.peermgr.add(addr.ip, addr.port)
+        elif message.command == b'getheaders':
+            self.send_message(msg_headers())
 
 class PeerManager(object):
     def __init__(self, log, mempool, chaindb):
@@ -285,6 +230,8 @@ class PeerManager(object):
         self.tried = {}
 
     def add(self, host, port):
+        if host in self.tried:
+            return
         self.log.info("PeerManager: connecting to %s:%d" %
                    (host, port))
         self.tried[host] = True
@@ -360,8 +307,8 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     # add ch to logger
     logger.addHandler(ch)
-    mempool = MemPool(logger)
-    chaindb = ChainDb(logger, mempool)
+    mempool = None
+    chaindb = ChainDb(logger)
     P = TUXParams
     params = P()
     bitcoin.params.MESSAGE_START = params.NETMAGIC
