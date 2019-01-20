@@ -231,7 +231,7 @@ class NodeConn(Greenlet):
             # elif not self.chaindb.tx_signed(message.tx, None, True):
             #     self.log.info("MemPool: Ignoring failed-sig TX %s" % (b2lx(message.tx.GetHash()),))
             else:
-                self.mempool.add(message.tx)
+                self.chaindb.mempool_add(message.tx)
 
         elif message.command == b"block":
             bhash = b2lx(message.block.GetHash())
@@ -353,7 +353,7 @@ if __name__ == "__main__":
     logger = logging.getLogger("sync")
     logger.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
     # create formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     # add formatter to ch

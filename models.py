@@ -24,7 +24,8 @@ class Block(BaseModel):
 
 class Transaction(BaseModel):
 	txid = CharField(max_length=64, unique=True, index=True)
-	block = CharField(max_length=64)
+	block = CharField(max_length=64, null=True)
+	block_height = IntegerField(null=True)
 	timestamp = DateTimeField()
 	vin = BinaryJSONField()
 	addresses_in = BinaryJSONField()

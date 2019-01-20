@@ -1,4 +1,5 @@
 
+import gevent
 import string
 import struct
 import os, sys
@@ -15,6 +16,7 @@ from bitcoin.core.serialize import uint256_from_str
 from bitcoin.wallet import CBitcoinAddress
 from bitcoin.core.script import CScript
 from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
+from datetime import datetime, timedelta
 
 class TxIdx(object):
     def __init__(self, blkhash, spentmask=0):
@@ -38,6 +40,7 @@ class ChainDb(object):
         self.checktransactions(True)
         self.checkaddresses(True)
         self.checkblocks(0, True)
+        self.initial_sync = True
 
     def locate(self, locator):
         return 0
@@ -55,6 +58,15 @@ class ChainDb(object):
         key = ('%s:%s' % (txid, vout)).encode()
         data = ('%s:%s' % (address, value)).encode()
         self.utxo_cache[key] = data
+
+    def getutxo(self, txid, vout):
+        key = ('%s:%s' % (txid, vout)).encode()
+        if key in self.utxo_cache:
+            r = self.utxo_cache[key]
+        else:
+            r = self.db.get(key)
+        r = r.decode("utf-8").split(':')
+        return (r[0], int(r[1]))
 
     def poputxo(self, wb, txid, vout):
         key = ('%s:%s' % (txid, vout)).encode()
@@ -77,11 +89,10 @@ class ChainDb(object):
         try:
             while loop or first:
                 first = False
-                print('Commiting transaction updates')
+                self.log.debug('Commiting transaction updates')
                 with self.db.write_batch(transaction=True) as deleteBatch:
                     transactions = []
                     with self.db.snapshot() as sn:
-                        print("Snapshot done")
                         for key, value in sn.iterator(prefix=b'transaction:'):
                             txid = key.decode('utf-8').split(':')[1]
                             count += 1
@@ -107,7 +118,7 @@ class ChainDb(object):
                             self.transaction_change_count -= count
         finally:
             self.tx_lock = False
-            print('Transaction update complete')
+            self.log.debug('Transaction update complete')
 
     def checktransactions(self, force=False):
         if not force and (self.tx_lock or self.transaction_change_count < 500):
@@ -118,7 +129,7 @@ class ChainDb(object):
 
     def checkaddresses(self, force=False):
         if force or self.address_change_count > 10000:
-            print('Commiting address balance updates')
+            self.log.debug('Commiting address balance updates')
             sys.stdout.flush()
             changes_list = []
             self.address_change_count = 0
@@ -134,7 +145,7 @@ class ChainDb(object):
 
     def checkblocks(self, height, force=False):
         if force or height % 300 == 0:
-            print('Commit blocks')
+            self.log.debug('Commit blocks')
             blocks = []
             with self.db.write_batch(transaction=True) as deleteBatch:
                 for key, value in self.db.iterator(prefix=b'block:'):
@@ -146,24 +157,38 @@ class ChainDb(object):
                 if blocks:
                     Block.insert_many(blocks).execute()
 
-    def parse_vin(self, wb, tx, txid, tx_data, vin, idx):
+    def mempool_add(self, tx):
+        self.mempool.add(tx)
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        tx = self.parse_tx(timestamp, None, None, tx)
+        Transaction.insert_many([tx]).execute()
+
+    def mempool_remove(self, txid):
+        self.mempool.remove(txid)
+        Transaction.delete().where(Transaction.txid == txid).execute()
+
+    def parse_vin(self, tx, txid, tx_data, vin, idx, batch=None):
         if tx.is_coinbase() and idx == 0:
             tx_data["vin"].append({"address": None, "value": 0})
             tx_data["addresses_in"][None] = 0
             return
         # TODO mark utxo as spent, don't remove
-        preaddress, prevalue = self.poputxo(wb, b2lx(vin.prevout.hash), vin.prevout.n)
-        self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, wb)
+        if batch:
+            preaddress, prevalue = self.poputxo(batch, b2lx(vin.prevout.hash), vin.prevout.n)
+            self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, batch)
+        else:
+            preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
         tx_data["vin"].append({"address": preaddress, "value": prevalue})
         tx_data["input_value"] += prevalue
         if preaddress in tx_data["addresses_in"]:
             tx_data["addresses_in"][preaddress] += prevalue
         else:
             tx_data["addresses_in"][preaddress] = prevalue
-        if preaddress in self.address_changes:
-            self.address_changes[preaddress] -= prevalue
-        else:
-            self.address_changes[preaddress] = -prevalue
+        if batch:
+            if preaddress in self.address_changes:
+                self.address_changes[preaddress] -= prevalue
+            else:
+                self.address_changes[preaddress] = -prevalue
 
     def parse_vout(self, tx, txid, tx_data, vout, idx):
         script = vout.scriptPubKey
@@ -196,28 +221,47 @@ class ChainDb(object):
         else:
             self.address_changes[address] = value
 
-    def parse_tx(self, txid, wb, timestamp, bHash, tx):
+    def parse_tx(self, timestamp, bHash, bHeight, tx, batch=None):
         txid = b2lx(tx.GetHash())
-        tx_data = {"vout": [], "vin": [], "input_value": 0, "output_value": 0, "block": bHash, "addresses_in": {}, "addresses_out": {}, "timestamp": timestamp}
+        tx_data = {
+            "txid": txid,
+            "vout": [], 
+            "vin": [], 
+            "input_value": 0, 
+            "output_value": 0, 
+            "block": bHash, 
+            "block_height": bHeight, 
+            "addresses_in": {}, 
+            "addresses_out": {}, 
+            "timestamp": timestamp
+        }
         for idx, vin in enumerate(tx.vin):
-            self.parse_vin(wb, tx, txid, tx_data, vin, idx)
+            self.parse_vin(tx, txid, tx_data, vin, idx, batch)
         for idx, vout in enumerate(tx.vout):
             self.parse_vout(tx, txid, tx_data, vout, idx)
-        wb.put(('transaction:%s' % txid).encode(), json.dumps(tx_data).encode())
-        self.transaction_change_count += 1
+        if batch:
+            batch.put(('transaction:%s' % txid).encode(), json.dumps(tx_data).encode())
+            self.transaction_change_count += 1
+        return tx_data
 
-    def parse_vtx(self, vtx, wb, timestamp, bHash):
+    def parse_vtx(self, vtx, wb, timestamp, bHash, bHeight):
         neverseen = 0
         for tx in vtx:
             txid = b2lx(tx.GetHash())
 
-            if not self.mempool.remove(txid):
+            if not self.mempool_remove(txid):
                 neverseen += 1
             txidx = TxIdx(b2lx(bHash))
             if not self.puttxidx(txid, txidx, batch=wb):
                 self.log.warn("TxIndex failed %s" % (txid,))
                 return False
-            self.parse_tx(txid, wb, timestamp, b2lx(bHash), tx)
+            self.parse_tx(timestamp, b2lx(bHash), bHeight, tx, wb)
+
+    def db_sync(self):
+        self.checktransactions(force=True)
+        self.checkaddresses(force=True)
+        self.checkblocks(0, force=True)
+        gevent.spawn_later(5, self.db_sync)
 
     def putoneblock(self, block, initsync=True):
         if block.hashPrevBlock != self.gettophash():
@@ -225,9 +269,15 @@ class ChainDb(object):
             return
         height = struct.unpack('i', self.db.get(b'height', struct.pack('i', -1)))[0] + 1
         bHash = b2lx(block.GetHash())
+        dt = datetime.utcfromtimestamp(block.nTime)
+
+        if dt > datetime.utcnow() - timedelta(minutes=10) and self.initial_sync:
+            self.log.info('Chain has caught up')
+            self.initial_sync = False
+            self.db_sync()
 
         with self.db.write_batch(transaction=True) as wb:
-            timestamp = datetime.utcfromtimestamp(block.nTime).strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
             wb.put(('block:%s' % bHash).encode(), json.dumps({
                 'merkle_root': b2lx(block.hashMerkleRoot), # save merkle root as hex string
                 'difficulty': block.calc_difficulty(block.nBits), # save difficulty as both calculated and nBits
@@ -243,7 +293,7 @@ class ChainDb(object):
                 'tx': list(map(lambda tx : b2lx(tx.GetHash()), block.vtx))
             }).encode())
             txs = {}
-            self.parse_vtx(block.vtx, wb, timestamp, block.GetHash())
+            self.parse_vtx(block.vtx, wb, timestamp, block.GetHash(), height)
             with self.db.write_batch(transaction=True) as addressBatch:
                 for key, value in self.address_changes.items():
                     temp = {'address': key, 'balance_change': value}
@@ -267,8 +317,8 @@ class ChainDb(object):
                 wb.put(key, value)
             self.utxo_cache = {}
             
-            print("UpdateTip: %s height %s" % (b2lx(h), height))
-            return True
+            self.log.info("UpdateTip: %s height %s" % (b2lx(h), height))
+            return dt
         # if not self.have_prevblock(block):
         # 	self.orphans[block.sha256] = True
         # 	self.orphan_deps[block.hashPrevBlock] = block

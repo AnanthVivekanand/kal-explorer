@@ -12,9 +12,6 @@ class MemPool(object):
         if hashstr in self.pool:
             self.log.info("MemPool.add(%s): already known" % (hashstr,))
             return False
-        # if not tx.is_valid():
-        #     self.log.info("MemPool.add(%s): invalid TX" % (hashstr, ))
-        #     return False
 
         self.pool[hashstr] = tx
 
