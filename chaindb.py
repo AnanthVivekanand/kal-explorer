@@ -5,33 +5,115 @@ import struct
 import os, sys
 import bitcoin
 import binascii
+import io
 import json
 import threading
 from datetime import datetime
 from cache import Cache
 from models import *
 
-from bitcoin.core import b2lx, uint256_from_str
-from bitcoin.core.serialize import uint256_from_str
+from bitcoin.messages import msg_block
+from bitcoin.core import b2lx, lx, uint256_from_str
+from bitcoin.core.serialize import uint256_from_str, uint256_to_str, uint256_from_compact
 from bitcoin.wallet import CBitcoinAddress
 from bitcoin.core.script import CScript
 from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
 from datetime import datetime, timedelta
+
+def int_to_bytes(i: int, *, signed: bool = False) -> bytes:
+    length = (i.bit_length() + 7 + int(signed)) // 8
+    return i.to_bytes(length, byteorder='big', signed=signed)
+
+def bytes_to_int(b: bytes, *, signed: bool = False) -> int:
+    return int.from_bytes(b, byteorder='big', signed=signed)
+
+def ser_uint256(i):
+    return uint256_to_str(i)
 
 class TxIdx(object):
     def __init__(self, blkhash, spentmask=0):
         self.blkhash = blkhash
         self.spentmask = spentmask
 
+class BlkMeta(object):
+    def __init__(self):
+        self.height = -1
+        self.work = 0
+
+    def deserialize(self, s):
+        s = s.decode('utf-8')
+        l = s.split()
+        if len(l) < 2:
+            raise RuntimeError
+        self.height = int(l[0])
+        self.work = int(l[1], 16)
+
+    def serialize(self):
+        r = str(self.height) + ' ' + hex(self.work)
+        return r.encode()
+
+    def __repr__(self):
+        return "BlkMeta(height %d, work %x)" % (self.height, self.work)
+
+
+class HeightIdx(object):
+    def __init__(self):
+        self.blocks = []
+
+    def deserialize(self, s):
+        s = s.decode('utf-8')
+        self.blocks = []
+        l = s.split()
+        for hashstr in l:
+            hash = lx(hashstr)
+            self.blocks.append(hash)
+
+    def serialize(self):
+        l = []
+        for blkhash in self.blocks:
+            l.append(b2lx(blkhash))
+        return (' '.join(l)).encode()
+
+    def __repr__(self):
+        return "HeightIdx(blocks=%s)" % (self.serialize(),)
+
 class ChainDb(object):
 
-    def __init__(self, log, mempool):
+    def __init__(self, log, mempool, params):
         self.log = log
         self.mempool = mempool
+        self.params = params
         self.utxo_changes = 0
         self.cache = Cache()
         self.cache.clear()
+
+        ## level DB 
+        #    pg_block: block data to insert into PG database
+        #    pg_tx:    transaction data to insert into PG database
+        #    tx:*      transaction outputs
+        #    misc:*    state
+        #    height:*  list of blocks at height h
+        #    blkmeta:* block metadata
+        #    blocks:*  block seek point in stream
+        datadir = './data'
         self.db = self.cache.db
+        self.blk_write = io.BufferedWriter(io.FileIO(datadir + '/blocks.dat','ab'))
+        self.blk_read = io.BufferedReader(io.FileIO(datadir + '/blocks.dat','rb'))
+
+        if self.db.get(b'misc:height') is None:
+            self.log.info('INITIALIZING EMPTY BLOCKCHAIN DATABASE')
+            with self.db.write_batch(transaction=True) as batch:
+                batch.put(b'misc:height', struct.pack('i', -1))
+                batch.put(b'misc:msg_start', self.params.NETMAGIC)
+                batch.put(b'misc:tophash', ser_uint256(0))
+                batch.put(b'misc:total_work', b'0x0')
+
+        start = self.db.get(b'misc:msg_start')
+        if start != self.params.NETMAGIC:
+            self.log.error("Database magic number mismatch. Data corruption or incorrect network?")
+            raise RuntimeError
+
+
         self.address_changes = {}
         self.address_change_count = 0
         self.transaction_change_count = 0
@@ -46,13 +128,14 @@ class ChainDb(object):
         return 0
 
     def gettophash(self):
-        return self.cache.gettop()
+        return self.db.get(b'misc:tophash')
 
     def haveblock(self, sha256, _):
         return False
 
     def getheight(self):
-        return self.cache.getheight()
+        d = self.db.get(b'misc:height')
+        return struct.unpack('i', d)[0]
 
     def pututxo(self, txid, vout, address, value):
         key = ('%s:%s' % (txid, vout)).encode()
@@ -93,7 +176,7 @@ class ChainDb(object):
                 with self.db.write_batch(transaction=True) as deleteBatch:
                     transactions = []
                     with self.db.snapshot() as sn:
-                        for key, value in sn.iterator(prefix=b'transaction:'):
+                        for key, value in sn.iterator(prefix=b'pg_tx:'):
                             txid = key.decode('utf-8').split(':')[1]
                             count += 1
                             data = json.loads(value.decode('utf-8'))
@@ -148,7 +231,7 @@ class ChainDb(object):
             self.log.debug('Commit blocks')
             blocks = []
             with self.db.write_batch(transaction=True) as deleteBatch:
-                for key, value in self.db.iterator(prefix=b'block:'):
+                for key, value in self.db.iterator(prefix=b'pg_block:'):
                     data = json.loads(value.decode('utf-8'))
                     data['version'] = struct.pack('i', data['version'])
                     data['bits'] = struct.pack('i', data['bits'])
@@ -172,7 +255,6 @@ class ChainDb(object):
             tx_data["vin"].append({"address": None, "value": 0})
             tx_data["addresses_in"][None] = 0
             return
-        # TODO mark utxo as spent, don't remove
         if batch:
             preaddress, prevalue = self.poputxo(batch, b2lx(vin.prevout.hash), vin.prevout.n)
             self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, batch)
@@ -240,7 +322,7 @@ class ChainDb(object):
         for idx, vout in enumerate(tx.vout):
             self.parse_vout(tx, txid, tx_data, vout, idx)
         if batch:
-            batch.put(('transaction:%s' % txid).encode(), json.dumps(tx_data).encode())
+            batch.put(('pg_tx:%s' % txid).encode(), json.dumps(tx_data).encode())
             self.transaction_change_count += 1
         return tx_data
 
@@ -267,18 +349,98 @@ class ChainDb(object):
         if block.hashPrevBlock != self.gettophash():
             print("Cannot connect block to chain %s %s" % (b2lx(block.GetHash()), b2lx(self.gettophash())))
             return
-        height = struct.unpack('i', self.db.get(b'height', struct.pack('i', -1)))[0] + 1
-        bHash = b2lx(block.GetHash())
-        dt = datetime.utcfromtimestamp(block.nTime)
 
-        if dt > datetime.utcnow() - timedelta(minutes=10) and self.initial_sync:
-            self.log.info('Chain has caught up')
-            self.initial_sync = False
-            self.db_sync()
 
+        top_height = self.getheight()
+        top_work = bytes_to_int(self.db.get(b'misc:total_work'))
+
+        prevmeta = BlkMeta()
+        if top_height >= 0:
+            ser_prevhash = b2lx(block.hashPrevBlock)
+            data = self.db.get(('blkmeta:'+ser_prevhash).encode())
+            prevmeta.deserialize(data)
+        else:
+            ser_prevhash = ''
+
+        # build network "block" msg, as canonical disk storage form
+        msg = msg_block()
+        msg.block = block
+        msg_data = msg.to_bytes()
+
+        # write "block" msg to storage
+        fpos = self.blk_write.tell()
+        self.blk_write.write(msg_data)
+        self.blk_write.flush()
+
+        batch = self.db.write_batch(transaction=True)
+        
+        with self.db.write_batch(transaction=True) as batch:
+
+            # add index entry
+            ser_hash = b2lx(block.GetHash())
+            batch.put(('blocks:'+ser_hash).encode(), int_to_bytes(fpos))
+
+            # store metadata related to this block
+            blkmeta = BlkMeta()
+            blkmeta.height = prevmeta.height + 1
+            blkmeta.work = (prevmeta.work +
+                    uint256_from_compact(block.nBits))
+            batch.put(('blkmeta:'+ser_hash).encode(), blkmeta.serialize())
+
+            # store list of blocks at this height
+            heightidx = HeightIdx()
+            heightstr = str(blkmeta.height)
+            d = self.db.get(('height:'+heightstr).encode())
+            if d:
+                heightidx.deserialize(d)
+            heightidx.blocks.append(block.GetHash())
+
+            batch.put(('height:'+heightstr).encode(), heightidx.serialize())
+
+        # print('height: %s' % blkmeta.height)
+        # print('blk: %s' % blkmeta.work)
+        # print('top: %s' % top_work)
+
+        # if chain is not best chain, proceed no further
+        if (blkmeta.work <= top_work):
+            self.log.info("ChainDb: height %d (weak), block %s" % (blkmeta.height, b2lx(block.GetHash())))
+            return True
+
+        # update global chain pointers
+        if not self.set_best_chain(ser_prevhash, ser_hash, block, blkmeta):
+            return False
+
+        return True
+
+    def set_best_chain(self, ser_prevhash, ser_hash, block, blkmeta):
+        # the easy case, extending current best chain
+        if (blkmeta.height == 0 or b2lx(self.db.get(b'misc:tophash')) == ser_prevhash):
+            return self.connect_block(ser_hash, block, blkmeta)
+
+        # switching from current chain to another, stronger chain
+        return self.reorganize(block.GetHash())
+
+    def connect_block(self, ser_hash, block, blkmeta):
+
+        # update database pointers for best chain
         with self.db.write_batch(transaction=True) as wb:
+            wb.put(b'misc:total_work', int_to_bytes(blkmeta.work))
+            wb.put(b'misc:height', struct.pack('i', blkmeta.height))
+            wb.put(b'misc:tophash', lx(ser_hash))
+
+            self.log.info("ChainDb: height %d, block %s" % (blkmeta.height, b2lx(block.GetHash())))
+
+            bHash = b2lx(block.GetHash())
+            dt = datetime.utcfromtimestamp(block.nTime)
+
+            if dt > datetime.utcnow() - timedelta(minutes=10) and self.initial_sync:
+                self.log.info('Chain has caught up')
+                self.initial_sync = False
+                self.db_sync()
+
+            height = blkmeta.height
             timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
-            wb.put(('block:%s' % bHash).encode(), json.dumps({
+            wb.put(('pg_block:%s' % bHash).encode(), json.dumps({
                 'merkle_root': b2lx(block.hashMerkleRoot), # save merkle root as hex string
                 'difficulty': block.calc_difficulty(block.nBits), # save difficulty as both calculated and nBits
                 'timestamp': timestamp,
@@ -310,20 +472,16 @@ class ChainDb(object):
             self.checkblocks(height)
 
             h = block.GetHash()
-            wb.put(b'tip', h)
-            wb.put(b'height', struct.pack('i', height))
+            # wb.put(b'tip', h)
+            # wb.put(b'height', struct.pack('i', height))
 
             for key, value in self.utxo_cache.items():
                 wb.put(key, value)
             self.utxo_cache = {}
             
-            self.log.info("UpdateTip: %s height %s" % (b2lx(h), height))
+            # self.log.info("UpdateTip: %s height %s" % (b2lx(h), height))
             return dt
-        # if not self.have_prevblock(block):
-        # 	self.orphans[block.sha256] = True
-        # 	self.orphan_deps[block.hashPrevBlock] = block
-        # 	self.log.info("Orphan block %064x (%d orphans)" % (block.sha256, len(self.orphan_deps)))
-        # 	return False
+
     def putblock(self, block):
         if self.haveblock(block.GetHash(), True):
             self.log.info("Duplicate block %064x submitted" % (block.GetHash(), ))

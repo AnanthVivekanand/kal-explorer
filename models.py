@@ -46,4 +46,5 @@ class Address(BaseModel):
 	balance = BigIntegerField()
 
 db.connect()
+db.drop_tables([Block, Transaction, Address, AddressChanges, Message])
 db.create_tables([Block, Transaction, Address, AddressChanges, Message])

@@ -221,6 +221,7 @@ class NodeConn(Greenlet):
                     want.inv.append(i)
                 elif i.type == 2:
                     want.inv.append(i)
+                # break #UNDO
                 self.last_want = i.hash
             if len(want.inv):
                 self.send_message(want)
@@ -237,6 +238,7 @@ class NodeConn(Greenlet):
             bhash = b2lx(message.block.GetHash())
             self.chaindb.putblock(message.block)
             self.last_block_rx = time.time()
+            #UNDO
             if self.last_want == 0:
                 gevent.spawn(self.send_getblocks)
             elif bhash == b2lx(self.last_want):
@@ -360,12 +362,14 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     # add ch to logger
     logger.addHandler(ch)
-    mempool = MemPool(logger)
-    chaindb = ChainDb(logger, mempool)
+
     P = TUXParams
     params = P()
     bitcoin.params.MESSAGE_START = params.NETMAGIC
     bitcoin.params.BASE58_PREFIXES = params.BASE58_PREFIXES
+
+    mempool = MemPool(logger)
+    chaindb = ChainDb(logger, mempool, params)
     bitcointx.SelectAlternativeParams(CoreChainParams, P)
     threads = []
     peermgr = PeerManager(logger, mempool, chaindb)
