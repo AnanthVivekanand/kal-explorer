@@ -13,7 +13,7 @@ from cache import Cache
 from models import *
 
 from bitcoin.messages import msg_block
-from bitcoin.core import b2lx, lx, uint256_from_str
+from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
 from bitcoin.core.serialize import uint256_from_str, uint256_to_str, uint256_from_compact
 from bitcoin.wallet import CBitcoinAddress
 from bitcoin.core.script import CScript
@@ -256,6 +256,7 @@ class ChainDb(object):
             tx_data["addresses_in"][None] = 0
             return
         if batch:
+            # TODO: remove old utxo db
             preaddress, prevalue = self.poputxo(batch, b2lx(vin.prevout.hash), vin.prevout.n)
             self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, batch)
         else:
@@ -296,7 +297,6 @@ class ChainDb(object):
         else:
             tx_data["addresses_out"][address] = value
         tx_data["output_value"] += value
-        # TODO utxo database
         self.utxo_changes += 1
         if address in self.address_changes:
             self.address_changes[address] += value
@@ -339,6 +339,32 @@ class ChainDb(object):
                 return False
             self.parse_tx(timestamp, b2lx(bHash), bHeight, tx, wb)
 
+    def clear_txout(self, txhash, n_idx, batch=None):
+        txidx = self.gettxidx(txhash)
+        if txidx is None:
+            return False
+
+        txidx.spentmask &= ~(1 << n_idx)
+        self.puttxidx(txhash, txidx, batch)
+
+        return True
+
+    def unique_outputs(self, block):
+        outputs = {}
+        txmap = {}
+        for tx in block.vtx:
+            if tx.is_coinbase:
+                continue
+            txmap[tx.GetHash()] = tx
+            for txin in tx.vin:
+                v = (txin.prevout.hash, txin.prevout.n)
+                if v in outputs:
+                    return None
+
+                outputs[v] = False
+
+        return (outputs, txmap)
+
     def db_sync(self):
         self.checktransactions(force=True)
         self.checkaddresses(force=True)
@@ -349,7 +375,6 @@ class ChainDb(object):
         if block.hashPrevBlock != self.gettophash():
             print("Cannot connect block to chain %s %s" % (b2lx(block.GetHash()), b2lx(self.gettophash())))
             return
-
 
         top_height = self.getheight()
         top_work = bytes_to_int(self.db.get(b'misc:total_work'))
@@ -415,10 +440,108 @@ class ChainDb(object):
     def set_best_chain(self, ser_prevhash, ser_hash, block, blkmeta):
         # the easy case, extending current best chain
         if (blkmeta.height == 0 or b2lx(self.db.get(b'misc:tophash')) == ser_prevhash):
-            return self.connect_block(ser_hash, block, blkmeta)
+            c = self.connect_block(ser_hash, block, blkmeta)
+            if blkmeta.height > 0:
+                self.disconnect_block(block)
+            return c
 
         # switching from current chain to another, stronger chain
         return self.reorganize(block.GetHash())
+
+    def getblockmeta(self, blkhash):
+        ser_hash = b2lx(blkhash)
+        try:
+            meta = BlkMeta()
+            meta.deserialize(self.db.get(('blkmeta:'+ser_hash).encode()))
+        except KeyError:
+            return None
+
+        return meta
+    
+    def getblockheight(self, blkhash):
+        meta = self.getblockmeta(blkhash)
+        if meta is None:
+            return -1
+
+        return meta.height
+
+    def reorganize(self, new_best_blkhash):
+        self.log.warn("REORGANIZE")
+
+        conn = []
+        disconn = []
+
+        old_best_blkhash = self.gettophash()
+        fork = old_best_blkhash
+        longer = new_best_blkhash
+        while fork != longer:
+            while (self.getblockheight(longer) > self.getblockheight(fork)):
+                block = self.getblock(longer)
+                block.calc_sha256()
+                conn.append(block)
+
+                longer = block.hashPrevBlock
+                if longer == 0:
+                    return False
+
+            if fork == longer:
+                break
+
+            block = self.getblock(fork)
+            disconn.append(block)
+
+            fork = block.hashPrevBlock
+            if fork == 0:
+                return False
+
+        self.log.warn("REORG disconnecting top hash %064x" % (old_best_blkhash,))
+        self.log.warn("REORG connecting new top hash %064x" % (new_best_blkhash,))
+        self.log.warn("REORG chain union point %064x" % (fork,))
+        self.log.warn("REORG disconnecting %d blocks, connecting %d blocks" % (len(disconn), len(conn)))
+
+        for block in disconn:
+            if not self.disconnect_block(block):
+                return False
+
+        for block in conn:
+            if not self.connect_block(b2lx(block.GetHash()), block, self.getblockmeta(block.GetHash())):
+                return False
+
+        self.log.warn("REORGANIZE DONE")
+        return True
+
+    def disconnect_block(self, block):
+        ser_prevhash = b2lx(block.hashPrevBlock)
+        prevmeta = BlkMeta()
+        prevmeta.deserialize(self.db.get(('blkmeta:'+ser_prevhash).encode()))
+
+        tup = self.unique_outputs(block)
+        if tup is None:
+            return False
+
+        outputs = tup[0]
+
+        # mark deps as unspent
+        with self.db.write_batch(transaction=True) as batch:
+            for output in outputs:
+                self.clear_txout(output[0], output[1], batch)
+
+            # update tx index and memory pool
+            for tx in block.vtx:
+                ser_hash = b2lx(tx.GetHash())
+                batch.delete(('tx:'+ser_hash).encode())
+
+                if not tx.is_coinbase():
+                    self.mempool_add(tx)
+
+            # update database pointers for best chain
+            batch.put(b'misc:total_work', int_to_bytes(prevmeta.work))
+            batch.put(b'misc:height', struct.pack('i', prevmeta.height))
+            batch.put(b'misc:tophash', lx(ser_prevhash))
+
+            self.log.info("ChainDb(disconn): height %d, block %s" % (prevmeta.height, b2lx(block.hashPrevBlock)))
+
+        return True
 
     def connect_block(self, ser_hash, block, blkmeta):
 
@@ -513,6 +636,29 @@ class ChainDb(object):
         txidx.spentmask = int(ser_value[pos+1], 16)
 
         return txidx
+
+    def getblock(self, blkhash):
+        # block = self.blk_cache.get(blkhash)
+        # if block is not None:
+        #     return block
+
+        ser_hash = ser_uint256(blkhash)
+        try:
+            # Lookup the block index, seek in the file
+            fpos = int(self.db.get(('blocks:'+ser_hash).encode()))
+            self.blk_read.seek(fpos)
+
+            # read and decode "block" msg
+            msg = CBlock.stream_deserialize(self.blk_read)
+            if msg is None:
+                return None
+            block = msg.block
+        except KeyError:
+            return None
+
+        # self.blk_cache.put(blkhash, block)
+
+        return block
 
     def spend_txout(self, txhash, n_idx, batch=None):
         txidx = self.gettxidx(txhash)
