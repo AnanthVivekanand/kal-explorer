@@ -1,3 +1,4 @@
+import re
 import struct
 from flask import Flask, abort
 from flask_restful import Resource, Api
@@ -6,13 +7,30 @@ app = Flask(__name__)
 api = Api(app)
 
 from models import Address, Transaction, Block
+from peewee import RawQuery
 from datetime import datetime, timedelta
 from webargs import fields, validate
 from webargs.flaskparser import use_kwargs, parser
 
 def get_confirmations(height):
+    if height is None:
+        return -1
     b = Block.select().order_by(Block.height.desc()).limit(1)[0]
     return b.height - height
+
+def tx_to_json(tx):
+    is_coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
+    return {
+        'blockhash': tx.block,
+        'blockheight': tx.block_height,
+        'blocktime': int(tx.timestamp.timestamp()),
+        'confirmations': get_confirmations(tx.block_height),
+        'isCoinBase': is_coinbase,
+        'txid': tx.txid,
+        'valueOut': tx.output_value,
+        'vin': tx.addresses_in,
+        'vout': tx.addresses_out,
+    }
 
 class AddressResource(Resource):
     def get(self, address):
@@ -45,6 +63,18 @@ class TransactionResource(Resource):
             'addresses_out': record.addresses_out,
         }
 
+class AddressTransactions(Resource):
+    # TODO: Add afterTime and limit filters
+    def get(self, address):
+        val = re.search('^[A-Za-z0-9]+$', address)
+        if not val:
+            abort(400)
+            # WARN Using SQL param causes sql syntax error due to quotations, not sure how to fix atm so using strict regex validation
+        query = "SELECT * FROM transaction WHERE vout @> '[{{\"address\": \"{address}\"}}]' LIMIT 50".format(address=address)
+        txs = Transaction.raw(query)
+
+        return list(map(lambda tx: tx_to_json(tx), txs))
+
 class BlockTransactions(Resource):
     args = {
         'block': fields.Str(
@@ -64,13 +94,13 @@ class BlockTransactions(Resource):
 
         txs = Transaction.select().where(Transaction.txid.in_(b.tx))
         for tx in txs:
-            coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
+            is_coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
             res['txs'].append({
                 'blockhash': b.hash,
                 'blockheight': b.height,
                 'blocktime': int(b.timestamp.timestamp()),
                 'confirmations': get_confirmations(b.height),
-                'isCoinBase': True,
+                'isCoinBase': is_coinbase,
                 'txid': tx.txid,
                 'valueOut': tx.output_value,
                 'vin': tx.vin,
@@ -172,6 +202,7 @@ api.add_resource(AddressResource, '/address/<address>')
 api.add_resource(TransactionResource, '/tx/<txid>')
 api.add_resource(BlockResource, '/block/<blockhash>')
 api.add_resource(BlockListResource, '/blocks')
+api.add_resource(AddressTransactions, '/txs/<address>')
 api.add_resource(BlockTransactions, '/txs')
 api.add_resource(MempoolResource, '/mempool')
 api.add_resource(StatusResource, '/status')

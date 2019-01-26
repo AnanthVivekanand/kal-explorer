@@ -173,7 +173,7 @@ class NodeConn(Greenlet):
         elif our_height < self.remote_height:
             gb = msg_getblocks(self.ver_send)
             if our_height >= 0:
-                gb.locator.vHave.append(self.chaindb.gettophash())
+                gb.locator.vHave = self.chaindb.getlocator()
             self.send_message(gb)
 
     def got_message(self, message):
@@ -222,7 +222,7 @@ class NodeConn(Greenlet):
                     want.inv.append(i)
                 elif i.type == 2:
                     want.inv.append(i)
-                break #UNDO
+                # break #UNDO
                 self.last_want = i.hash
             if len(want.inv):
                 self.send_message(want)
@@ -244,10 +244,10 @@ class NodeConn(Greenlet):
             # print(b2lx(s))
             self.last_block_rx = time.time()
             #UNDO
-            # if self.last_want == 0:
-            #     gevent.spawn(self.send_getblocks)
-            # elif bhash == b2lx(self.last_want):
-            #     gevent.spawn(self.send_getblocks)
+            if self.last_want == 0:
+                gevent.spawn(self.send_getblocks)
+            elif bhash == b2lx(self.last_want):
+                gevent.spawn(self.send_getblocks)
 
         elif message.command == b"getheaders":
             self.getheaders(message)

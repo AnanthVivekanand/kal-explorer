@@ -1,4 +1,3 @@
-
 import gevent
 import string
 import struct
@@ -10,9 +9,9 @@ import json
 import threading
 from datetime import datetime
 from cache import Cache
-from models import *
+from models import Block, Transaction, Address, AddressChanges, db
 
-from bitcoin.messages import msg_block
+from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
 from bitcoin.core.serialize import uint256_from_str, uint256_to_str, uint256_from_compact
 from bitcoin.wallet import CBitcoinAddress
@@ -130,6 +129,16 @@ class ChainDb(object):
     def gettophash(self):
         return self.db.get(b'misc:tophash')
 
+    def getlocator(self):
+        vHave = [self.gettophash()]
+        height = struct.unpack('i', self.db.get(b'misc:height'))[0]
+        if height > 100:
+            data = self.db.get(('height:%s' % (height - 100)).encode())
+            heightidx = HeightIdx()
+            heightidx.deserialize(data)
+            vHave = vHave + heightidx.blocks
+        return vHave
+
     def haveblock(self, sha256, _):
         return False
 
@@ -187,6 +196,7 @@ class ChainDb(object):
                                 "input_value": data["input_value"],
                                 "output_value": data["output_value"],
                                 "block": data["block"],
+                                "block_height": data["block_height"],
                                 "addresses_out": data["addresses_out"],
                                 "addresses_in": data["addresses_in"],
                                 "timestamp": data["timestamp"],
@@ -197,7 +207,7 @@ class ChainDb(object):
                                 loop = True
                                 break
                         if len(transactions) > 0:
-                            Transaction.insert_many(transactions).execute()
+                            Transaction.insert_many(transactions).execute(None)
                             self.transaction_change_count -= count
         finally:
             self.tx_lock = False
@@ -223,7 +233,7 @@ class ChainDb(object):
                     changes_list.append({'address': address, 'balance_change': value})
                     deleteBatch.delete(key)
                 if len(changes_list) > 0:
-                    AddressChanges.insert_many(changes_list).execute()
+                    AddressChanges.insert_many(changes_list).execute(None)
             db.execute_sql("insert into address (address, balance) (select address, sum(balance_change) as balance_change from addresschanges group by address) on conflict(address) do update set balance = address.balance + EXCLUDED.balance; TRUNCATE addresschanges;")
 
     def checkblocks(self, height, force=False):
@@ -238,13 +248,13 @@ class ChainDb(object):
                     blocks.append(data)
                     deleteBatch.delete(key)
                 if blocks:
-                    Block.insert_many(blocks).execute()
+                    Block.insert_many(blocks).execute(None)
 
     def mempool_add(self, tx):
         self.mempool.add(tx)
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         tx = self.parse_tx(timestamp, None, None, tx)
-        Transaction.insert_many([tx]).execute()
+        Transaction.insert_many([tx]).execute(None)
 
     def mempool_remove(self, txid):
         self.mempool.remove(txid)
@@ -403,7 +413,9 @@ class ChainDb(object):
 
             # add index entry
             ser_hash = b2lx(block.GetHash())
-            batch.put(('blocks:'+ser_hash).encode(), int_to_bytes(fpos))
+            key = ('blocks:'+ser_hash).encode()
+            value = struct.pack('i', fpos)
+            batch.put(key, value)
 
             # store metadata related to this block
             blkmeta = BlkMeta()
@@ -442,8 +454,8 @@ class ChainDb(object):
         if (blkmeta.height == 0 or b2lx(self.db.get(b'misc:tophash')) == ser_prevhash):
             c = self.connect_block(ser_hash, block, blkmeta)
             #TODO: test
-            if blkmeta.height > 0:
-                self.disconnect_block(block)
+            # if blkmeta.height > 0:
+                # self.disconnect_bl    ock(block)
             return c
 
         # switching from current chain to another, stronger chain
@@ -478,7 +490,6 @@ class ChainDb(object):
         while fork != longer:
             while (self.getblockheight(longer) > self.getblockheight(fork)):
                 block = self.getblock(longer)
-                block.calc_sha256()
                 conn.append(block)
 
                 longer = block.hashPrevBlock
@@ -631,7 +642,7 @@ class ChainDb(object):
 
             bHash = b2lx(block.GetHash())
             dt = datetime.utcfromtimestamp(block.nTime)
-            self.db_sync()
+            # self.db_sync()
             if dt > datetime.utcnow() - timedelta(minutes=10) and self.initial_sync:
                 self.log.info('Chain has caught up')
                 self.initial_sync = False
@@ -653,7 +664,7 @@ class ChainDb(object):
                 'tx_count': len(block.vtx),
                 'tx': list(map(lambda tx : b2lx(tx.GetHash()), block.vtx))
             }).encode())
-            txs = {}
+
             self.parse_vtx(block.vtx, wb, timestamp, block.GetHash(), height)
 
             self._update_address_index()
@@ -707,19 +718,19 @@ class ChainDb(object):
 
         return txidx
 
-    def getblock(self, blkhash):
+    def getblock(self, blkhash) -> CBlock:
         # block = self.blk_cache.get(blkhash)
         # if block is not None:
         #     return block
 
-        ser_hash = ser_uint256(blkhash)
+        ser_hash = b2lx(blkhash)
         try:
             # Lookup the block index, seek in the file
-            fpos = int(self.db.get(('blocks:'+ser_hash).encode()))
+            fpos = self.db.get(('blocks:'+ser_hash).encode())
+            fpos = struct.unpack('i', fpos)[0]
             self.blk_read.seek(fpos)
-
             # read and decode "block" msg
-            msg = CBlock.stream_deserialize(self.blk_read)
+            msg = MsgSerializable.stream_deserialize(self.blk_read)
             if msg is None:
                 return None
             block = msg.block

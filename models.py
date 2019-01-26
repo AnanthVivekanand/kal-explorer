@@ -8,9 +8,9 @@ class BaseModel(Model):
         database = db
 
 class Block(BaseModel):
-    height = IntegerField()
-    hash = CharField(max_length=64, unique=True)
-    timestamp = DateTimeField()
+    height = IntegerField(index=True)
+    hash = CharField(max_length=64, unique=True, index=True)
+    timestamp = DateTimeField(index=True)
     merkle_root = CharField(max_length=64, unique=True)
     tx = BinaryJSONField()
     difficulty = FloatField()
@@ -20,14 +20,14 @@ class Block(BaseModel):
     nonce = BigIntegerField()
     coinbase = BlobField()
     tx_count = IntegerField()
-    orphaned = BooleanField(default=False)
+    orphaned = BooleanField(default=False, index=True)
 
 
 class Transaction(BaseModel):
     txid = CharField(max_length=64, unique=True, index=True)
-    block = CharField(max_length=64, null=True)
+    block = CharField(max_length=64, null=True, index=True)
     block_height = IntegerField(null=True)
-    timestamp = DateTimeField()
+    timestamp = DateTimeField(index=True)
     vin = BinaryJSONField()
     addresses_in = BinaryJSONField()
     addresses_out = BinaryJSONField()
