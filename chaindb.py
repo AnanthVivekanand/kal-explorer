@@ -441,6 +441,7 @@ class ChainDb(object):
         # the easy case, extending current best chain
         if (blkmeta.height == 0 or b2lx(self.db.get(b'misc:tophash')) == ser_prevhash):
             c = self.connect_block(ser_hash, block, blkmeta)
+            #TODO: test
             if blkmeta.height > 0:
                 self.disconnect_block(block)
             return c
@@ -510,6 +511,22 @@ class ChainDb(object):
         self.log.warn("REORGANIZE DONE")
         return True
 
+    def _address_from_vout(self, txid, vout):
+        script = vout.scriptPubKey
+        if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
+            return
+        try:
+            script = CScript(vout.scriptPubKey)
+            if script.is_unspendable():
+                self.log.warn("Unspendable %s" % vout.scriptPubKey)
+                if vout.scriptPubKey[2:4] == b'\xfe\xab':
+                    m = vout.scriptPubKey[4:].decode('utf-8')
+                    Message.create(message=m)
+                return
+            return str(TX_CBitcoinAddress.from_scriptPubKey(script))
+        except:
+            self.log.warn('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
+
     def disconnect_block(self, block):
         ser_prevhash = b2lx(block.hashPrevBlock)
         prevmeta = BlkMeta()
@@ -534,14 +551,73 @@ class ChainDb(object):
                 if not tx.is_coinbase():
                     self.mempool_add(tx)
 
+
             # update database pointers for best chain
             batch.put(b'misc:total_work', int_to_bytes(prevmeta.work))
             batch.put(b'misc:height', struct.pack('i', prevmeta.height))
             batch.put(b'misc:tophash', lx(ser_prevhash))
 
-            self.log.info("ChainDb(disconn): height %d, block %s" % (prevmeta.height, b2lx(block.hashPrevBlock)))
+            # TODO:
+            # [x] Search block cache for block and marked as orphaned
+            # [x] Search transaction cache and delete
+            #
+            # [x] Mark block as orphaned 
+            # [x] Remove transactions from transaction table, mempool add done above
+            # [ ] Revert balance changes
+            # 
+            # Disconnects happen infrequently so we can do these updates to postgres DB immediately 
+            bhash = b2lx(block.GetHash())
+            key = ('pg_block:%s' % bhash).encode()
+            cached_block = self.db.get(key)
+            if cached_block:
+                cached_block = json.loads(cached_block.decode('utf-8'))
+                cached_block['orphaned'] = True
+                batch.put(key, (json.dumps(cached_block)).encode())
 
+            for tx in block.vtx:
+                if tx.is_coinbase():
+                    continue
+                ser_hash = b2lx(tx.GetHash())
+                key = ('pg_tx:%s' % ser_hash)
+                batch.delete(key)
+
+            Block.update(orphaned=True).where(Block.hash == b2lx(block.GetHash())).execute()
+            Transaction.delete().where(Transaction.block == b2lx(block.GetHash())).execute()
+
+            for tx in block.vtx:
+                txid = b2lx(tx.GetHash())
+                for idx, vin in enumerate(tx.vin):
+                    if tx.is_coinbase() and idx == 0:
+                        continue
+                    preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
+                    if preaddress in self.address_changes:
+                        self.address_changes[preaddress] += prevalue
+                    else:
+                        self.address_changes[preaddress] = prevalue
+
+                for idx, vout in enumerate(tx.vout):
+                    address = self._address_from_vout(txid, vout)
+                    value = vout.nValue
+                    if address in self.address_changes:
+                        self.address_changes[address] -= value
+                    else:
+                        self.address_changes[address] = -value
+
+            self._update_address_index()
+            self.checkaddresses(force=True)
+
+            self.log.info("ChainDb(disconn): height %d, block %s" % (prevmeta.height, b2lx(block.hashPrevBlock)))
         return True
+
+    def _update_address_index(self):
+        with self.db.write_batch(transaction=True) as addressBatch:
+            for key, value in self.address_changes.items():
+                temp = {'address': key, 'balance_change': value}
+                k = ('address:%s' % key).encode()
+                currbal = struct.unpack('l', self.db.get(k, struct.pack('l', 0)))[0]
+                addressBatch.put(k, struct.pack('l', currbal + value))
+                self.address_change_count += 1
+        self.address_changes = {}
 
     def connect_block(self, ser_hash, block, blkmeta):
 
@@ -555,7 +631,7 @@ class ChainDb(object):
 
             bHash = b2lx(block.GetHash())
             dt = datetime.utcfromtimestamp(block.nTime)
-
+            self.db_sync()
             if dt > datetime.utcnow() - timedelta(minutes=10) and self.initial_sync:
                 self.log.info('Chain has caught up')
                 self.initial_sync = False
@@ -579,14 +655,8 @@ class ChainDb(object):
             }).encode())
             txs = {}
             self.parse_vtx(block.vtx, wb, timestamp, block.GetHash(), height)
-            with self.db.write_batch(transaction=True) as addressBatch:
-                for key, value in self.address_changes.items():
-                    temp = {'address': key, 'balance_change': value}
-                    k = ('address:%s' % key).encode()
-                    currbal = struct.unpack('l', self.db.get(k, struct.pack('l', 0)))[0]
-                    addressBatch.put(k, struct.pack('l', currbal + value))
-                    self.address_change_count += 1
-            self.address_changes = {}
+
+            self._update_address_index()
 
             self.checktransactions()
 

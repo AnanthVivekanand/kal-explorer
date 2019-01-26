@@ -3,6 +3,7 @@ import struct
 import hashlib
 import copy
 from io import BytesIO
+import binascii
 import gevent
 import gevent.pywsgi
 import socket
@@ -237,6 +238,10 @@ class NodeConn(Greenlet):
         elif message.command == b"block":
             bhash = b2lx(message.block.GetHash())
             self.chaindb.putblock(message.block)
+            # b = BytesIO()
+            # message.block.stream_serialize(b)
+            # s = b.getvalue()
+            # print(b2lx(s))
             self.last_block_rx = time.time()
             #UNDO
             # if self.last_want == 0:
