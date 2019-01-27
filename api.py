@@ -23,7 +23,7 @@ def tx_to_json(tx):
     return {
         'blockhash': tx.block,
         'blockheight': tx.block_height,
-        'blocktime': int(tx.timestamp.timestamp()),
+        'timestamp': int(tx.timestamp.timestamp()),
         'confirmations': get_confirmations(tx.block_height),
         'isCoinBase': is_coinbase,
         'txid': tx.txid,
@@ -64,16 +64,33 @@ class TransactionResource(Resource):
         }
 
 class AddressTransactions(Resource):
-    # TODO: Add afterTime and limit filters
-    def get(self, address):
+    # TODO: Add beforeTime and limit filters
+    args = {
+        'beforeTime': fields.Int()
+    }
+    @use_kwargs(args)
+    def get(self, address, beforeTime=None):
         val = re.search('^[A-Za-z0-9]+$', address)
         if not val:
             abort(400)
-            # WARN Using SQL param causes sql syntax error due to quotations, not sure how to fix atm so using strict regex validation
-        query = "SELECT * FROM transaction WHERE vout @> '[{{\"address\": \"{address}\"}}]' LIMIT 50".format(address=address)
-        txs = Transaction.raw(query)
+        if not beforeTime:
+            beforeTime = datetime.now().timestamp()
 
-        return list(map(lambda tx: tx_to_json(tx), txs))
+        query = "SELECT * FROM transaction WHERE (addresses_out ? %s OR addresses_in ? %s) AND timestamp < to_timestamp(%s) ORDER BY timestamp DESC LIMIT 100"
+        txs = Transaction.raw(query, address, address, beforeTime)
+
+        txs = list(map(lambda tx: tx_to_json(tx), txs))
+        if len(txs) == 0:
+            lastTime = None
+        else:
+            lastTime = txs[-1]['timestamp']
+        res = {
+            'count': len(txs),
+            'lastTime': lastTime,
+            'txs': txs,
+        }
+        return res
+
 
 class BlockTransactions(Resource):
     args = {
@@ -140,8 +157,15 @@ class BlockResource(Resource):
         return res
 
 class BlockListResource(Resource):
-    def get(self):
-        blocks = Block.select().order_by(Block.timestamp.desc()).limit(10)
+    args = {
+        'beforeBlock': fields.Int()
+    }
+    @use_kwargs(args)
+    def get(self, beforeBlock=None):
+        q = Block.select()
+        if beforeBlock:
+            q = q.where(Block.height < beforeBlock)
+        blocks = q.order_by(Block.timestamp.desc()).limit(100)
         print(bytes(blocks[0].version).hex())
         res = map(lambda b : {
             'height': b.height,
