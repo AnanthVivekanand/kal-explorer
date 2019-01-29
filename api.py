@@ -36,6 +36,11 @@ def tx_to_json(tx):
         'vout': tx.addresses_out,
     }
 
+class RichListResource(Resource):
+    def get(self):
+        res = Address.select().order_by(Address.balance.desc()).limit(100)
+        return list(map(lambda addr : {'address': addr.address, 'balance': addr.balance / 100000000, '_satoshis': addr.balance}, res))
+
 class AddressResource(Resource):
     def get(self, address):
         try:
@@ -226,6 +231,7 @@ class StatusResource(Resource):
 
 
 # select address, txid, balance, addresses_out addresses_in from address join transaction  ON addresses_in ? address or addresses_out ? address where address = 'TE2kARbJQrqPG8GfdihzNUYgXxeEg21982' limit 10;
+api.add_resource(RichListResource, '/richlist')
 api.add_resource(AddressResource, '/address/<address>')
 api.add_resource(TransactionResource, '/tx/<txid>')
 api.add_resource(BlockResource, '/block/<blockhash>')
