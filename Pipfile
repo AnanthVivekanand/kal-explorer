@@ -17,6 +17,7 @@ plyvel = "*"
 flask = "*"
 flask-restful = "*"
 webargs = "*"
+flask-cors = "*"
 
 [requires]
 python_version = "3.7"

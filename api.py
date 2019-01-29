@@ -2,9 +2,13 @@ import re
 import struct
 from flask import Flask, abort
 from flask_restful import Resource, Api
+from flask_cors import CORS
+
 
 app = Flask(__name__)
 api = Api(app)
+CORS(app)
+
 
 from models import Address, Transaction, Block
 from peewee import RawQuery
