@@ -1,6 +1,6 @@
 import re
 import struct
-from flask import Flask, abort
+from flask import Flask, abort, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
 
@@ -229,6 +229,9 @@ class StatusResource(Resource):
                 'difficulty': latest_block.difficulty,
             }
 
+class BroadcastResource(Resource):
+    def put(self):
+        data = request.get_data()
 
 # select address, txid, balance, addresses_out addresses_in from address join transaction  ON addresses_in ? address or addresses_out ? address where address = 'TE2kARbJQrqPG8GfdihzNUYgXxeEg21982' limit 10;
 api.add_resource(RichListResource, '/richlist')
@@ -240,3 +243,4 @@ api.add_resource(AddressTransactions, '/txs/<address>')
 api.add_resource(BlockTransactions, '/txs')
 api.add_resource(MempoolResource, '/mempool')
 api.add_resource(StatusResource, '/status')
+api.add_resource(BroadcastResource, '/broadcast')

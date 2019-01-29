@@ -273,31 +273,36 @@ class ChainDb(object):
             preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
         tx_data["vin"].append({"address": preaddress, "value": prevalue})
         tx_data["input_value"] += prevalue
+
+        # Add to the value of address vin
         if preaddress in tx_data["addresses_in"]:
             tx_data["addresses_in"][preaddress] += prevalue
         else:
             tx_data["addresses_in"][preaddress] = prevalue
+
+        # Update address tracking only when non-mempool (batch is not none)
         if batch:
+            self.log.debug("Updating address %s with value %s" % (preaddress, -prevalue))
             if preaddress in self.address_changes:
                 self.address_changes[preaddress] -= prevalue
             else:
                 self.address_changes[preaddress] = -prevalue
 
-    def parse_vout(self, tx, txid, tx_data, vout, idx):
+    def parse_vout(self, tx, txid, tx_data, vout, idx, batch=None):
         script = vout.scriptPubKey
         if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
             return
         try:
             script = CScript(vout.scriptPubKey)
             if script.is_unspendable():
-                print("Unspendable %s" % vout.scriptPubKey)
+                self.log.warn("Unspendable %s" % vout.scriptPubKey)
                 if vout.scriptPubKey[2:4] == b'\xfe\xab':
                     m = vout.scriptPubKey[4:].decode('utf-8')
                     Message.create(message=m)
                 return
             address = str(TX_CBitcoinAddress.from_scriptPubKey(script))
         except:
-            print('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
+            self.log.warn('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
             return
         value = vout.nValue
         self.pututxo(txid, idx, address, value)
@@ -307,11 +312,15 @@ class ChainDb(object):
         else:
             tx_data["addresses_out"][address] = value
         tx_data["output_value"] += value
-        self.utxo_changes += 1
-        if address in self.address_changes:
-            self.address_changes[address] += value
-        else:
-            self.address_changes[address] = value
+
+        # Update address tracking only when non-mempool (batch is not none)
+        if batch:
+            self.utxo_changes += 1
+            self.log.debug("Updating address %s with value %s" % (address, value))
+            if address in self.address_changes:
+                self.address_changes[address] += value
+            else:
+                self.address_changes[address] = value
 
     def parse_tx(self, timestamp, bHash, bHeight, tx, batch=None):
         txid = b2lx(tx.GetHash())
@@ -330,7 +339,7 @@ class ChainDb(object):
         for idx, vin in enumerate(tx.vin):
             self.parse_vin(tx, txid, tx_data, vin, idx, batch)
         for idx, vout in enumerate(tx.vout):
-            self.parse_vout(tx, txid, tx_data, vout, idx)
+            self.parse_vout(tx, txid, tx_data, vout, idx, batch)
         if batch:
             batch.put(('pg_tx:%s' % txid).encode(), json.dumps(tx_data).encode())
             self.transaction_change_count += 1
