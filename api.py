@@ -16,6 +16,25 @@ from datetime import datetime, timedelta
 from webargs import fields, validate
 from webargs.flaskparser import use_kwargs, parser
 
+pools = {
+    'blazepool': {
+        'name': 'BlazePool',
+        'url': 'http://blazepool.com'
+    },
+    'zpool.ca': {
+        'name': 'Zpool',
+        'url': 'https://zpool.ca'
+    },
+    'zerg': {
+        'name': 'Zerg Pool',
+        'url': 'http://zergpool.com/'
+    },
+    'ahashpool': {
+        'name': 'A Hash Pool',
+        'url': 'https://www.ahashpool.com/'
+    }
+}
+
 def get_confirmations(height):
     if height is None:
         return -1
@@ -159,6 +178,7 @@ class BlockResource(Resource):
             'version': struct.unpack('i', bytes(b.version))[0],
             'bits': bytes(b.bits).hex(),
             'nonce': b.nonce,
+            'coinbase': b.coinbase,
             'previousblockhash': prev.hash,
         }
         if nxt:
@@ -175,22 +195,28 @@ class BlockListResource(Resource):
         if beforeBlock:
             q = q.where(Block.height < beforeBlock)
         blocks = q.order_by(Block.timestamp.desc()).limit(100)
-        print(bytes(blocks[0].version).hex())
-        res = map(lambda b : {
-            'height': b.height,
-            'hash': b.hash,
-            'timestamp': int(b.timestamp.timestamp()),
-            'merkle_root': b.merkle_root,
-            'tx': b.tx,
-            'difficulty': b.difficulty,
-            'size': b.size,
-            'version_hex': bytes(b.version).hex(),
-            'version': struct.unpack('i', bytes(b.version))[0],
-            'bits': bytes(b.bits).hex(),
-            'nonce': b.nonce,
-            # 'coinbase': b.coinbase,
-        }, blocks)
-        return list(res)
+        res = []
+        for b in blocks:
+            pool = None
+            cb = bytes(b.coinbase).decode('utf-8')
+            for key, value in pools.items():
+                if cb.find(key) != -1:
+                    pool = value
+            res.append({
+                'height': b.height,
+                'hash': b.hash,
+                'timestamp': int(b.timestamp.timestamp()),
+                'merkle_root': b.merkle_root,
+                'tx': b.tx,
+                'difficulty': b.difficulty,
+                'size': b.size,
+                'version_hex': bytes(b.version).hex(),
+                'version': struct.unpack('i', bytes(b.version))[0],
+                'bits': bytes(b.bits).hex(),
+                'nonce': b.nonce,
+                'pool': pool
+            })
+        return res
 
 class MempoolResource(Resource):
     def get(self):
@@ -223,10 +249,12 @@ class StatusResource(Resource):
     def get(self, q=None):
         if q == 'getInfo':
             latest_block = Block.select().order_by(Block.height.desc()).get()
+            mempool_txs = Transaction.select().where(Transaction.block == None).count()
             return {
                 'blocks': latest_block.height,
                 'lastblockhash': latest_block.hash,
                 'difficulty': latest_block.difficulty,
+                'mempool_txs': mempool_txs,
             }
 
 class BroadcastResource(Resource):

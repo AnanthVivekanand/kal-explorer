@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { StatusService } from './status.service';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +8,11 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'ui';
+  status = {};
+
+  constructor(statusService : StatusService){
+    statusService.getStatus()
+    .subscribe((data: [any]) => this.status = data)
+  }
+
 }

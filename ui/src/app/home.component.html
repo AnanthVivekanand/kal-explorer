@@ -1,0 +1,33 @@
+<div class="row" style="margin-top: 10px">
+  <div class="col-8">
+    <h1>Latest Blocks</h1>
+    <table mdbTable hover="true">
+      <thead>
+        <tr>
+          <th scope="col">Height</th>
+          <th scope="col">Age</th>
+          <th scope="col">Transactions</th>
+          <th scope="col">Mined by</th>
+          <th scope="col">Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr mdbTableCol *ngFor="let block of blocks">
+          <th scope="row"><a style="color: #007bff" href="/block/{{block.height}}">{{block.height}}</a></th>
+          <td>{{age(block.timestamp)}}</td>
+          <td>{{block.tx.length}}</td>
+          <td><span *ngIf="block.pool"><a style="color: #007bff" href="{{block.pool.url}}">{{block.pool.name}}</a></span></td>
+          <td>{{block.size}}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <div class="col-gray">
+      <h2>
+        About
+      </h2>
+      An awesome explorer
+    </div>
+  </div>
+</div>
