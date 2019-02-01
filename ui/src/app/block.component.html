@@ -1,0 +1,71 @@
+<div *ngIf="block">
+  <h1>Block #{{block.height}}</h1>
+  <div class="card card-body bg-light" style="padding: 0.5rem;">
+    <span><strong>BlockHash</strong> <span class="txid text-muted"> {{block.hash}}</span></span>
+  </div>
+  <h2>Summary</h2>
+
+  <div class="row metadata">
+    <div class="col-6">
+      <table mdbTable hover="true">
+        <tr>
+          <td>Transactions</td>
+          <td class="text-muted">{{block.txs.length}}</td>
+        </tr>
+        <tr>
+          <td>Height</td>
+          <td class="text-muted">{{block.height}}</td>
+        </tr>
+        <tr>
+          <td>Timestamp</td>
+          <td class="text-muted">{{timestamp()}}</td>
+        </tr>
+        <tr>
+          <td>Mined by</td>
+          <td class="text-muted"><a *ngIf="block.pool" href="{{block.pool.url}}">{{block.pool.name}}</a></td>
+        </tr>
+        <tr>
+          <td>Merkle root</td>
+          <td class="text-muted" style="max-width: 0;">{{block.merkleroot}}</td>
+        </tr>
+        <tr>
+          <td>Previous block</td>
+          <td class="text-muted"><a (click)="goBlock(block.previousblockhash)">{{block.height - 1}}</a></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col-6">
+      <table mdbTable hover="true">
+        <tr>
+          <td>Difficulty</td>
+          <td class="text-muted">{{block.difficulty}}</td>
+        </tr>
+        <tr>
+          <td>Bits</td>
+          <td class="text-muted">{{block.bits}}</td>
+        </tr>
+        <tr>
+          <td>Size (bytes)</td>
+          <td class="text-muted">{{block.size}}</td>
+        </tr>
+        <tr>
+          <td>Version</td>
+          <td class="text-muted">{{block.version_hex}}</td>
+        </tr>
+        <tr>
+          <td>Nonce</td>
+          <td class="text-muted">{{block.nonce}}</td>
+        </tr>
+        <tr *ngIf="block.nextblockhash">
+          <td>Next block</td>
+          <td class="text-muted"><a (click)="goBlock(block.nextblockhash)">{{block.height + 1}}</a></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  <h2>Transactions</h2>
+  <div class="block-tx" *ngFor="let tx of block.txs">
+    <transaction [tx]="tx"></transaction>
+  </div>
+</div>

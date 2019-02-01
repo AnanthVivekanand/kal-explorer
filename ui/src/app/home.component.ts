@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { BlocksService } from './blocks.service';
+import {Router} from "@angular/router";
 import * as moment from 'moment';
 
 
@@ -12,9 +13,13 @@ export class HomeComponent {
   title = 'ui';
   blocks : any [];
 
-  constructor(blocksService : BlocksService) {
+  constructor(private router : Router, blocksService : BlocksService) {
     blocksService.getBlocks()
     .subscribe((data: [any]) => this.blocks = data)
+  }
+
+  goBlock(blockhash : String) {
+    this.router.navigate(['block', blockhash]);
   }
 
   age(time : number) {

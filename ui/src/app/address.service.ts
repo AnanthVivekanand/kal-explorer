@@ -5,17 +5,13 @@ import { environment } from '../environments/environment';
 @Injectable({
   providedIn: 'root'
 })
-export class BlocksService {
+export class AddressService {
 
   constructor(private http: HttpClient) { }
 
-  blocksUrl = `${environment.url_base}/blocks`;
+  blocksUrl = `${environment.url_base}/address`;
 
-  getBlocks() {
-    return this.http.get(this.blocksUrl);
-  }
-
-  getBlock(blockhash : String) {
-    return this.http.get(`${environment.url_base}/block/${blockhash}`);
+  getBalance(address : String) {
+    return this.http.get(`${this.blocksUrl}/${address}`).toPromise();
   }
 }

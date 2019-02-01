@@ -1,0 +1,23 @@
+.metadata{
+    td{
+        padding: 0;
+        padding-top:0.3rem;
+        padding-bottom:0.3rem;
+        padding-left:0.3rem;
+    }
+    td.text-muted{
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.block-tx {
+    background-color: #F4F4F4;
+    border-radius: 2px;
+    margin: 20px 0 10px;
+    overflow: hidden;
+    padding: 15px;
+    border: 1px solid #eee;
+}

@@ -7,3 +7,17 @@ div.status {
     text-align: center;
     margin-right: 10px;
 }
+// body {
+//     font-size: 10px;
+// }
+
+.container{
+    font-size: 0.9rem;
+    padding-top: 15px;
+}
+
+@media (min-width: 1200px){
+    .container {
+        max-width: 1170px;
+    }
+}

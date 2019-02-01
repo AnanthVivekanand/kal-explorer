@@ -2,7 +2,7 @@
 <mdb-navbar SideClass="navbar navbar-expand-lg navbar-dark indigo">
 
   <!-- Navbar brand -->
-  <mdb-navbar-brand><a class="navbar-brand" href="#">Explorer</a></mdb-navbar-brand>
+  <mdb-navbar-brand><a class="navbar-brand" (click)="goHome()">Explorer</a></mdb-navbar-brand>
 
   <!-- Collapsible content -->
   <links>
@@ -10,10 +10,13 @@
     <!-- Links -->
     <ul class="navbar-nav mr-auto">
       <li class="nav-item active">
-        <a class="nav-link waves-light" mdbWavesEffect>Home<span class="sr-only">(current)</span></a>
+        <a class="nav-link waves-light" (click)="goHome()" mdbWavesEffect>Home<span class="sr-only">(current)</span></a>
       </li>
       <li class="nav-item">
-        <a class="nav-link waves-light" mdbWavesEffect>Blocks</a>
+        <a class="nav-link waves-light" (click)="goBlocks()" mdbWavesEffect>Blocks</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link waves-light" (click)="goRichList()" mdbWavesEffect>Rich List</a>
       </li>
 
       <!-- Dropdown -->
