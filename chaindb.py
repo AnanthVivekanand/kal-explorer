@@ -9,7 +9,7 @@ import json
 import threading
 from datetime import datetime
 from cache import Cache
-from models import Block, Transaction, Address, AddressChanges, db
+from models import Block, Transaction, Address, AddressChanges, Utxo, db
 
 from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
@@ -121,6 +121,7 @@ class ChainDb(object):
         self.checktransactions(True)
         self.checkaddresses(True)
         self.checkblocks(0, True)
+        self.checkutxos(True)
         self.initial_sync = True
 
     def locate(self, locator):
@@ -146,10 +147,12 @@ class ChainDb(object):
         d = self.db.get(b'misc:height')
         return struct.unpack('i', d)[0]
 
-    def pututxo(self, txid, vout, address, value):
+    def pututxo(self, txid, vout, address, value, wb=None, scriptPubKey=None, blockHeight=None):
         key = ('%s:%s' % (txid, vout)).encode()
         data = ('%s:%s' % (address, value)).encode()
         self.utxo_cache[key] = data
+        self.utxo_changes += 1
+        wb.put(('pg_utxo_put:%s:%s' % (txid, vout)).encode(), ('%s:%s:%s:%s' % (address, value, scriptPubKey, blockHeight)).encode())
 
     def getutxo(self, txid, vout):
         key = ('%s:%s' % (txid, vout)).encode()
@@ -169,6 +172,9 @@ class ChainDb(object):
             r = self.db.get(key)
             wb.delete(key)
         r = r.decode("utf-8").split(':')
+
+        wb.put(('pg_utxo_del:%s:%s' % (txid, vout)).encode(), b'')
+
         return (r[0], int(r[1]))
 
     def _committransactions(self):
@@ -250,6 +256,41 @@ class ChainDb(object):
                 if blocks:
                     Block.insert_many(blocks).execute(None)
 
+    def checkutxos(self, force=False):
+        if force or self.utxo_changes > 1000:
+            self.log.info('Commit utxo changes')
+            utxos = []
+            #wb.put(('pg_utxo_put:%s:%s' % (txid, vout)).encode(), ('%s:%s:%s:%s' % (address, value, scriptPubKey, blockHeight)).encode())
+            with self.db.write_batch(transaction=True) as deleteBatch:
+                for key, value in self.db.iterator(prefix=b'pg_utxo_put:'):
+                    key_parts = key.decode().split(':')
+                    txid = key_parts[1]
+                    vout = key_parts[0]
+                    try:
+                        (address, value, scriptPubKey, blockHeight) = value.decode().split(':')
+                    except:
+                        raise
+                    utxos.append({
+                        'txid_vout': '%s:%s' % (txid, vout),
+                        'address': address,
+                        'scriptPubKey': scriptPubKey,
+                        'block_height': blockHeight,
+                        'amount': value
+                    })
+                    deleteBatch.delete(key)
+                if utxos:
+                    Utxo.insert_many(utxos).execute(None)
+                    utxos = []
+            with self.db.write_batch(transaction=True) as deleteBatch:
+                for key, value in self.db.iterator(prefix=b'pg_utxo_del:'):
+                    key_parts = key.decode().split(':')
+                    txid = key_parts[1]
+                    vout = key_parts[0]
+                    utxos.append('%s:%s' % (txid, vout))
+                if utxos:
+                    Utxo.delete().where(Utxo.txid_vout.in_(utxos)).execute()
+            self.utxo_changes = 0
+
     def mempool_add(self, tx):
         self.mempool.add(tx)
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
@@ -288,7 +329,7 @@ class ChainDb(object):
             else:
                 self.address_changes[preaddress] = -prevalue
 
-    def parse_vout(self, tx, txid, tx_data, vout, idx, batch=None):
+    def parse_vout(self, tx, txid, tx_data, vout, idx, batch=None, blockHeight=None):
         script = vout.scriptPubKey
         if len(script) >= 38 and script[:6] == bitcoin.core.WITNESS_COINBASE_SCRIPTPUBKEY_MAGIC:
             return
@@ -305,7 +346,7 @@ class ChainDb(object):
             self.log.warn('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
             return
         value = vout.nValue
-        self.pututxo(txid, idx, address, value)
+        self.pututxo(txid, idx, address, value, wb=batch, scriptPubKey=b2lx(script), blockHeight=blockHeight)
         tx_data["vout"].append({"address": address, "value": value})
         if address in tx_data["addresses_out"]:
             tx_data["addresses_out"][address] += value
@@ -315,7 +356,6 @@ class ChainDb(object):
 
         # Update address tracking only when non-mempool (batch is not none)
         if batch:
-            self.utxo_changes += 1
             self.log.debug("Updating address %s with value %s" % (address, value))
             if address in self.address_changes:
                 self.address_changes[address] += value
@@ -339,7 +379,7 @@ class ChainDb(object):
         for idx, vin in enumerate(tx.vin):
             self.parse_vin(tx, txid, tx_data, vin, idx, batch)
         for idx, vout in enumerate(tx.vout):
-            self.parse_vout(tx, txid, tx_data, vout, idx, batch)
+            self.parse_vout(tx, txid, tx_data, vout, idx, batch, blockHeight=bHeight)
         if batch:
             batch.put(('pg_tx:%s' % txid).encode(), json.dumps(tx_data).encode())
             self.transaction_change_count += 1
@@ -388,6 +428,7 @@ class ChainDb(object):
         self.checktransactions(force=True)
         self.checkaddresses(force=True)
         self.checkblocks(0, force=True)
+        self.checkutxos(force=True)
         gevent.spawn_later(5, self.db_sync)
 
     def putoneblock(self, block, initsync=True):
@@ -683,6 +724,8 @@ class ChainDb(object):
             self.checkaddresses()
 
             self.checkblocks(height)
+            
+            self.checkutxos()
 
             h = block.GetHash()
             # wb.put(b'tip', h)

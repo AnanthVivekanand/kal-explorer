@@ -35,6 +35,17 @@ class Transaction(BaseModel):
     input_value = BigIntegerField()
     output_value = BigIntegerField()
 
+
+class Utxo(BaseModel):
+    address = CharField(index=True)
+    txid_vout = CharField(index=True)
+    # vout = IntegerField()
+    scriptPubKey = CharField()
+    amount = BigIntegerField()
+    block_height = IntegerField(null=True)
+    # timestamp = DateTimeField()
+
+
 class Message(BaseModel):
     message = TextField()
 
@@ -48,4 +59,4 @@ class Address(BaseModel):
 
 db.connect()
 # db.drop_tables([Block, Transaction, Address, AddressChanges, Message])
-db.create_tables([Block, Transaction, Address, AddressChanges, Message])
+db.create_tables([Block, Transaction, Address, AddressChanges, Message, Utxo])
