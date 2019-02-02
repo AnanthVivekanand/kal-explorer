@@ -16,11 +16,11 @@ from starlette.responses import HTMLResponse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
-from models import Address, Transaction, Block
+from models import Address, Transaction, Block, Utxo
 from peewee import RawQuery
 from datetime import datetime, timedelta
-from webargs import fields, validate
-from webargs.flaskparser import use_kwargs, parser
+# from webargs import fields, validate
+# from webargs.flaskparser import use_kwargs, parser
 
 pools = {
     'blazepool': {
@@ -75,6 +75,20 @@ async def read_address(address : str):
     return {
         'balance': record.balance
     }
+
+@app.get('/utxo/{address}')
+async def read_utxos(address : str):
+    utxos = Utxo.select().where(Utxo.address == address)
+    def _func(utxo):
+        txid, vout = utxo.txid_vout.split(':')
+        return {
+            'txid': txid,
+            'vout': vout,
+            'amount': utxo.amount,
+            'scriptPubKey': utxo.scriptPubKey,
+            'confirmations': get_confirmations(utxo.block_height),
+        }
+    return list(map(_func, utxos))
 
 @app.get('/tx/{txid}')
 def read_tx(txid : str):

@@ -174,7 +174,7 @@ class ChainDb(object):
         r = r.decode("utf-8").split(':')
 
         wb.put(('pg_utxo_del:%s:%s' % (txid, vout)).encode(), b'')
-
+        self.utxo_changes += 1
         return (r[0], int(r[1]))
 
     def _committransactions(self):
@@ -257,15 +257,15 @@ class ChainDb(object):
                     Block.insert_many(blocks).execute(None)
 
     def checkutxos(self, force=False):
-        if force or self.utxo_changes > 1000:
-            self.log.info('Commit utxo changes')
+        if force or self.utxo_changes > 10000:
+            self.log.debug('Commit utxo changes')
             utxos = []
             #wb.put(('pg_utxo_put:%s:%s' % (txid, vout)).encode(), ('%s:%s:%s:%s' % (address, value, scriptPubKey, blockHeight)).encode())
             with self.db.write_batch(transaction=True) as deleteBatch:
                 for key, value in self.db.iterator(prefix=b'pg_utxo_put:'):
                     key_parts = key.decode().split(':')
                     txid = key_parts[1]
-                    vout = key_parts[0]
+                    vout = key_parts[2]
                     try:
                         (address, value, scriptPubKey, blockHeight) = value.decode().split(':')
                     except:
@@ -285,9 +285,11 @@ class ChainDb(object):
                 for key, value in self.db.iterator(prefix=b'pg_utxo_del:'):
                     key_parts = key.decode().split(':')
                     txid = key_parts[1]
-                    vout = key_parts[0]
+                    vout = key_parts[2]
                     utxos.append('%s:%s' % (txid, vout))
                 if utxos:
+                    # print('Deleting utxos')
+                    # print(utxos)
                     Utxo.delete().where(Utxo.txid_vout.in_(utxos)).execute()
             self.utxo_changes = 0
 

@@ -14,10 +14,6 @@ gevent = "*"
 8f737f3 = {file = "https://github.com/petertodd/python-bitcoinlib/archive/master.zip"}
 370ec80 = {file = "https://github.com/Simplexum/python-bitcointx/archive/master.zip"}
 plyvel = "*"
-flask = "*"
-flask-restful = "*"
-webargs = "*"
-flask-cors = "*"
 fastapi = "*"
 uvicorn = "*"
 
