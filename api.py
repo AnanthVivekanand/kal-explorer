@@ -65,6 +65,8 @@ def tx_to_json(tx):
         'valueOut': tx.output_value,
         'vin': tx.addresses_in,
         'vout': tx.addresses_out,
+        'addresses_in': tx.addresses_in,
+        'addresses_out': tx.addresses_out,
     }
 
 @app.get('/richlist')
@@ -135,7 +137,7 @@ def read_address_txs(address, beforeTime=None):
     if not beforeTime:
         beforeTime = datetime.now().timestamp()
 
-    query = "SELECT * FROM transaction WHERE (addresses_out ? %s OR addresses_in ? %s) AND timestamp < to_timestamp(%s) ORDER BY timestamp DESC LIMIT 100"
+    query = "SELECT * FROM transaction WHERE (addresses_out ? %s OR addresses_in ? %s) AND timestamp < to_timestamp(%s) ORDER BY timestamp DESC LIMIT 10"
     txs = Transaction.raw(query, address, address, beforeTime)
 
     txs = list(map(lambda tx: tx_to_json(tx), txs))

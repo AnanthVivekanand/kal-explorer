@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BlocksService } from './blocks.service';
-import { TransactionComponent } from './transaction.component';
+import { TransactionBlockComponent } from './components/transaction.component';
 import * as moment from 'moment';
 import { Observable } from 'rxjs';
 

@@ -9,9 +9,9 @@ export class AddressService {
 
   constructor(private http: HttpClient) { }
 
-  blocksUrl = `${environment.url_base}/address`;
+  blocksUrl = `${environment.url_base}/addr`;
 
-  getBalance(address : String) {
-    return this.http.get(`${this.blocksUrl}/${address}`).toPromise();
+  getBalance(address : String) : any {
+    return this.http.get(`${this.blocksUrl}/${address}/balance`).toPromise();
   }
 }

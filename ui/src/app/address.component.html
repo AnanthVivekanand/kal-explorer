@@ -13,27 +13,34 @@
                         <td>
                             <strong>Total Received</strong>
                         </td>
+                        <td></td>
                     </tr>
                     <tr>
                         <td>
                             <strong>Total Sent</strong>
                         </td>
+                        <td></td>
                     </tr>
                     <tr>
                         <td>
                             <strong>Final Balance</strong>
                         </td>
                         <td>
-                            {{balance}}
+                            {{balance}} TUX
                         </td>
                     </tr>
                     <tr>
                         <td>
                             <strong>No. Transactions</strong>
                         </td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>
         </div>
+    </div>
+    <h2>Transactions</h2>
+    <div class="block-tx" *ngFor="let tx of txs">
+        <transaction [tx]="tx"></transaction>
     </div>
 </div>

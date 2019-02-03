@@ -7,6 +7,7 @@ import { HomeComponent } from './home.component';
 import { BlockComponent } from './block.component';
 import { AddressComponent } from './address.component';
 import { TransactionComponent } from './transaction.component';
+import { TransactionBlockComponent } from './components/transaction.component';
 
 import { MDBBootstrapModule } from 'angular-bootstrap-md';
 import { HttpClientModule } from '@angular/common/http';
@@ -18,7 +19,8 @@ import { HttpClientModule } from '@angular/common/http';
     HomeComponent,
     BlockComponent,
     TransactionComponent,
-    AddressComponent
+    AddressComponent,
+    TransactionBlockComponent
   ],
   imports: [
     BrowserModule,

@@ -1,32 +1,48 @@
-<div class="row">
-    <div class="col-7">{{tx.txid}}</div>
-    <div class="col-5 text-muted" style="text-align: right">{{timestamp()}}</div>
-</div>
-<div class="row" style="padding-top: 15px; border-top:1px solid #ccc; margin-top: 10px">
-    <div class="col-5">
-        <div *ngIf="is_coinbase()">
-                No Inputs (Newly Generated Coins)
-        </div>
-        <div *ngIf="!is_coinbase()" ngFor="key of keys_in">
-            <div class="panel panel-default" *ngFor="let key of keys_in">
-                <div class="panel-body">
-                    <div class="pull-right">{{parse_value(tx.addresses_in[key])}} TUX</div>
-                    <a href="#">{{key}}</a>
-                </div>
-            </div>
-        </div>
+<div *ngIf="tx">
+  <h1><span>Transaction</span></h1>
+
+  <div class="card card-body bg-light" style="padding: 0.5rem;">
+    <span><strong>Transaction</strong> <span class="txid text-muted"> {{txid}}</span></span>
+  </div>
+  <h2>Summary</h2>
+  <div class="row">
+    <div class="col-md-10">
+      <table class="table">
+        <tbody>
+          <!-- <tr>
+            <td>
+              <strong>Size</strong>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Received Time</strong>
+            </td>
+            <td></td>
+          </tr> -->
+          <tr>
+            <td>
+              <strong>Mined Time</strong>
+            </td>
+            <td>
+                {{timestamp()}}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Included in Block</strong>
+            </td>
+            <td>
+                <a (click)="goBlock(tx.block)" style="color: #007bff">{{tx.block}}</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <div class="col-1" style="text-align: center">
-        <div class="hidden-xs hidden-sm text-center">
-            <span class="fas fa-chevron-right"></span>
-        </div>
-    </div>
-    <div class="col-6" style="text-align: left;">
-        <div class="panel panel-default" *ngFor="let key of keys_out">
-            <div class="panel-body">
-                <div class="pull-right">{{parse_value(tx.addresses_out[key])}} TUX</div>
-                <a href="#">{{key}}</a>
-            </div>
-        </div>
-    </div>
+  </div>
+  <h2>Details</h2>
+  <div class="block-tx">
+    <transaction [tx]="tx"></transaction>
+  </div>
 </div>

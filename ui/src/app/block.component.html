@@ -65,7 +65,7 @@
     </div>
   </div>
   <h2>Transactions</h2>
-  <div class="block-tx" *ngFor="let tx of block.txs">
+  <div *ngFor="let tx of block.txs">
     <transaction [tx]="tx"></transaction>
   </div>
 </div>
