@@ -38,9 +38,9 @@ class Transaction(BaseModel):
 
 class Utxo(BaseModel):
     address = CharField(index=True)
-    txid_vout = CharField(index=True)
+    txid_vout = CharField(index=True, unique=True)
     # vout = IntegerField()
-    scriptPubKey = CharField()
+    scriptPubKey = CharField() # is this needed?
     amount = BigIntegerField()
     block_height = IntegerField(null=True)
     # timestamp = DateTimeField()

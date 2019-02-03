@@ -41,10 +41,16 @@ pools = {
     }
 }
 
-def get_confirmations(height):
+def get_latest_block():
+    return Block.select().order_by(Block.height.desc()).limit(1)[0]
+
+def get_confirmations(height, block=None):
     if height is None:
         return -1
-    b = Block.select().order_by(Block.height.desc()).limit(1)[0]
+    if block:
+        b = block
+    else:
+        b = get_latest_block()
     return b.height - height
 
 def tx_to_json(tx):
@@ -66,7 +72,20 @@ def read_richlist():
     res = Address.select().order_by(Address.balance.desc()).limit(100)
     return list(map(lambda addr : {'address': addr.address, 'balance': addr.balance}, res))
 
-@app.get('/address/{address}')
+def _utxo_map(block):
+    def _func(utxo):
+        txid, vout = utxo.txid_vout.split(':')
+        return {
+            'txid': txid,
+            'vout': vout,
+            'amount': utxo.amount,
+            'scriptPubKey': utxo.scriptPubKey,
+            'address': utxo.address,
+            'confirmations': get_confirmations(utxo.block_height, block=block),
+        }
+    return _func
+
+@app.get('/addr/{address}/balance')
 async def read_address(address : str):
     try:
         record = Address.get(address=address)
@@ -76,19 +95,17 @@ async def read_address(address : str):
         'balance': record.balance
     }
 
-@app.get('/utxo/{address}')
-async def read_utxos(address : str):
+@app.get('/addr/{address}/utxo')
+async def read_addr_utxos(address : str):
     utxos = Utxo.select().where(Utxo.address == address)
-    def _func(utxo):
-        txid, vout = utxo.txid_vout.split(':')
-        return {
-            'txid': txid,
-            'vout': vout,
-            'amount': utxo.amount,
-            'scriptPubKey': utxo.scriptPubKey,
-            'confirmations': get_confirmations(utxo.block_height),
-        }
-    return list(map(_func, utxos))
+    block = get_latest_block()
+    return list(map(_utxo_map(block), utxos))
+
+@app.get('/addrs/{addresses}/utxo')
+async def read_addrs_utxo(addresses : str):
+    utxos = Utxo.select().where(Utxo.address.in_(addresses.split(',')))
+    block = get_latest_block()
+    return list(map(_utxo_map(block), utxos))
 
 @app.get('/tx/{txid}')
 def read_tx(txid : str):
@@ -144,13 +161,14 @@ def read_block_txs(block : str):
     }
 
     txs = Transaction.select().where(Transaction.txid.in_(b.tx))
+    block = get_latest_block()
     for tx in txs:
         is_coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
         res['txs'].append({
             'blockhash': b.hash,
             'blockheight': b.height,
             'blocktime': int(b.timestamp.timestamp()),
-            'confirmations': get_confirmations(b.height),
+            'confirmations': get_confirmations(b.height, block=block),
             'isCoinBase': is_coinbase,
             'txid': tx.txid,
             'valueOut': tx.output_value,

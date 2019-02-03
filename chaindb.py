@@ -152,7 +152,8 @@ class ChainDb(object):
         data = ('%s:%s' % (address, value)).encode()
         self.utxo_cache[key] = data
         self.utxo_changes += 1
-        wb.put(('pg_utxo_put:%s:%s' % (txid, vout)).encode(), ('%s:%s:%s:%s' % (address, value, scriptPubKey, blockHeight)).encode())
+        if wb:
+            wb.put(('pg_utxo_put:%s:%s' % (txid, vout)).encode(), ('%s:%s:%s:%s' % (address, value, scriptPubKey, blockHeight)).encode())
 
     def getutxo(self, txid, vout):
         key = ('%s:%s' % (txid, vout)).encode()
