@@ -1,0 +1,28 @@
+<div class="row">
+  <div class="col-8">
+    <h1>Rich List</h1>
+    <table mdbTable hover="true">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Address</th>
+          <th scope="col">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr mdbTableCol *ngFor="let entry of richlist; let i = index">
+          <th>{{i + 1}}</th>
+          <td scope="row"><a style="color: #007bff" (click)="goAddress(entry.address)">{{entry.address}}</a></td>
+          <td>{{entry.balance / 100000000}} TUX</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <div class="col-gray">
+      <h2>
+        Distribution
+      </h2>
+    </div>
+  </div>
+</div>

@@ -8,9 +8,13 @@ import { BlockComponent } from './block.component';
 import { AddressComponent } from './address.component';
 import { TransactionComponent } from './transaction.component';
 import { TransactionBlockComponent } from './components/transaction.component';
+import { RichListComponent } from './richlist.component';
 
 import { MDBBootstrapModule } from 'angular-bootstrap-md';
 import { HttpClientModule } from '@angular/common/http';
+
+import { NgxQRCodeModule } from 'ngx-qrcode2';
+import { InfiniteScrollModule } from 'ngx-infinite-scroll';
 
 
 @NgModule({
@@ -20,14 +24,16 @@ import { HttpClientModule } from '@angular/common/http';
     BlockComponent,
     TransactionComponent,
     AddressComponent,
+    RichListComponent,
     TransactionBlockComponent
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
     MDBBootstrapModule.forRoot(),
-    HttpClientModule
-    // NgbModule
+    HttpClientModule,
+    NgxQRCodeModule,
+    InfiniteScrollModule
   ],
   providers: [],
   bootstrap: [AppComponent]

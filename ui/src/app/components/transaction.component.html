@@ -1,6 +1,6 @@
 <div class="tx">
   <div class="row">
-    <div class="col-7">{{tx.txid}}</div>
+    <div class="col-7"><a (click)="goTx()" tabindex="1">{{tx.txid}}</a></div>
     <div class="col-5 text-muted" style="text-align: right">{{timestamp()}}</div>
   </div>
   <div class="row" style="padding-top: 15px; border-top:1px solid #ccc; margin-top: 10px">

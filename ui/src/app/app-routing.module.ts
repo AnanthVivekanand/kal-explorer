@@ -5,12 +5,14 @@ import { HomeComponent } from './home.component';
 import { BlockComponent } from './block.component';
 import { AddressComponent } from './address.component';
 import { TransactionComponent } from './transaction.component';
+import { RichListComponent } from './richlist.component';
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'block/:blockhash', component: BlockComponent },
   { path: 'address/:address', component: AddressComponent },
   { path: 'tx/:txid', component: TransactionComponent },
+  { path: 'richlist', component: RichListComponent }
 ];
 
 @NgModule({

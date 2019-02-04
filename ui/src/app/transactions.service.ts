@@ -11,7 +11,10 @@ export class TransactionService {
 
   txUrl = `${environment.url_base}`;
 
-  getTransactions(addr : string) : any {
+  getTransactions(addr : string, lastTime : Number) : any {
+    if(lastTime != null){
+      return this.http.get(`${this.txUrl}/txs/${addr}?beforeTime=${lastTime}`).toPromise();  
+    }
     return this.http.get(`${this.txUrl}/txs/${addr}`).toPromise();
   }
 

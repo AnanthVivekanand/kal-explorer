@@ -14,4 +14,8 @@ export class AddressService {
   getBalance(address : String) : any {
     return this.http.get(`${this.blocksUrl}/${address}/balance`).toPromise();
   }
+
+  getRichList() : any {
+    return this.http.get(`${environment.url_base}/richlist`).toPromise();
+  }
 }

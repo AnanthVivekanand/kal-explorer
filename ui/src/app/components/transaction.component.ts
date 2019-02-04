@@ -42,5 +42,9 @@ export class TransactionBlockComponent implements OnInit {
     goAddress(addr : string) {
         this.router.navigate(['address', addr])
     }
+
+    goTx() {
+        this.router.navigate(['tx', this.tx.txid])
+    }
 };
 

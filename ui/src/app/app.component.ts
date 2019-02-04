@@ -27,7 +27,7 @@ export class AppComponent implements OnInit {
   }
 
   goRichList() {
-
+    this.router.navigate(['richlist'])
   }
 
 }
