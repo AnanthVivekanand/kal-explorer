@@ -10,17 +10,17 @@
       <table class="table">
         <tbody>
           <tr>
-            <!-- <td>
-                            <strong>Total Received</strong>
-                        </td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <strong>Total Sent</strong>
-                        </td>
-                        <td></td>
-                    </tr> -->
+            <td>
+              <strong>Total Received</strong>
+            </td>
+            <td style="text-align: right">{{received}} TUX</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Total Sent</strong>
+            </td>
+            <td style="text-align: right">{{sent}} TUX</td>
+          </tr>
           <tr>
             <td>
               <strong>Final Balance</strong>
@@ -45,14 +45,10 @@
     </div>
   </div>
   <h2>Transactions</h2>
-  <div class="search-results" 
-        infinite-scroll 
-        [infiniteScrollDistance]="scrollDistance" 
-        [infiniteScrollUpDistance]="scrollUpDistance"
-        [infiniteScrollThrottle]="throttle" 
-        (scrolled)="onScrollDown()" >
+  <div class="search-results" infinite-scroll [infiniteScrollDistance]="scrollDistance" [infiniteScrollUpDistance]="scrollUpDistance"
+    [infiniteScrollThrottle]="throttle" (scrolled)="onScrollDown()">
     <div class="block-tx" *ngFor="let tx of txs">
-        <transaction [tx]="tx"></transaction>
+      <transaction [tx]="tx"></transaction>
     </div>
   </div>
 </div>

@@ -4,7 +4,11 @@
 
 export const environment = {
   production: false,
-  url_base: 'http://localhost:8000'
+  url_base: 'http://localhost:8000',
+  coin: {
+    ticker: 'TUX',
+    division: 100000000
+  }
 };
 
 /*

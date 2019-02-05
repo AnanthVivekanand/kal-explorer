@@ -1,6 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import * as moment from 'moment';
+import { environment } from '../../environments/environment';
 import { text } from '@angular/core/src/render3';
 
 
@@ -36,7 +37,7 @@ export class TransactionBlockComponent implements OnInit {
     }
 
     parse_value(value) {
-        return value / 100000000;
+        return value / environment.coin.division;
     }
 
     goAddress(addr : string) {

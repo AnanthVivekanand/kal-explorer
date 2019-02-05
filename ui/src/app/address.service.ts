@@ -18,4 +18,8 @@ export class AddressService {
   getRichList() : any {
     return this.http.get(`${environment.url_base}/richlist`).toPromise();
   }
+
+  getDistribution() : any {
+    return this.http.get(`${environment.url_base}/distribution`).toPromise();
+  }
 }

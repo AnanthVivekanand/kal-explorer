@@ -52,10 +52,22 @@ class Message(BaseModel):
 class AddressChanges(BaseModel):
     address = TextField(index=True)
     balance_change = BigIntegerField()
+    sent_change = BigIntegerField()
+    received_change = BigIntegerField()
 
 class Address(BaseModel):
     address = TextField(unique=True, index=True)
     balance = BigIntegerField()
+    sent = BigIntegerField()
+    received = BigIntegerField()
+
+    def to_dict(self):
+        return {
+            'address': self.address,
+            'balance': self.balance,
+            'sent': self.sent,
+            'received': self.received,
+        }
 
 db.connect()
 # db.drop_tables([Block, Transaction, Address, AddressChanges, Message])

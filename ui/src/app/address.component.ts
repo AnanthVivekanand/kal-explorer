@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AddressService } from './address.service';
 import { TransactionService } from './transactions.service';
+import { environment } from '../environments/environment';
 import * as moment from 'moment';
 import { Observable } from 'rxjs';
 // import { QRCodeModule } from 'angularx-qrcode';
@@ -15,6 +16,8 @@ import { Observable } from 'rxjs';
 export class AddressComponent implements OnInit {
     title = 'Address';
     balance: Number;
+    sent : Number;
+    received : Number;
     sub: any;
     address: string;
     txs : any[] = [];
@@ -39,7 +42,9 @@ export class AddressComponent implements OnInit {
         this.route.params.subscribe(params => {
             this.address = params['address'];
             this.addressService.getBalance(this.address).then(data => {
-                this.balance = data.balance / 100000000;
+                this.balance = data.balance / environment.coin.division;
+                this.sent = data.sent / environment.coin.division;
+                this.received = data.received / environment.coin.division;
             });
             this.moreTxs();
         });

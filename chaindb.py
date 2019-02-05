@@ -235,13 +235,20 @@ class ChainDb(object):
             self.address_change_count = 0
             with self.db.write_batch(transaction=True) as deleteBatch:
                 for key, value in self.db.iterator(prefix=b'address:'):
-                    value = struct.unpack('l', value)[0]
+                    balance, sent, received = struct.unpack('lll', value)
                     address = key.decode('utf-8').split(':')[1]
-                    changes_list.append({'address': address, 'balance_change': value})
+                    changes_list.append({'address': address, 'balance_change': balance, 'sent_change': sent, 'received_change': received})
                     deleteBatch.delete(key)
                 if len(changes_list) > 0:
                     AddressChanges.insert_many(changes_list).execute(None)
-            db.execute_sql("insert into address (address, balance) (select address, sum(balance_change) as balance_change from addresschanges group by address) on conflict(address) do update set balance = address.balance + EXCLUDED.balance; TRUNCATE addresschanges;")
+            db.execute_sql("""
+            INSERT INTO address (address, balance, sent, received) 
+                (SELECT address, sum(balance_change) as balance_change, sum(sent_change) as sent_change, sum(received_change) as received_change
+                    FROM addresschanges GROUP BY address) 
+            ON CONFLICT(address) DO
+            UPDATE SET balance = address.balance + EXCLUDED.balance, sent = address.sent + EXCLUDED.sent, received = address.received + EXCLUDED.received; 
+            TRUNCATE addresschanges;
+            """)
 
     def checkblocks(self, height, force=False):
         if force or height % 300 == 0:
@@ -328,9 +335,14 @@ class ChainDb(object):
         if batch:
             self.log.debug("Updating address %s with value %s" % (preaddress, -prevalue))
             if preaddress in self.address_changes:
-                self.address_changes[preaddress] -= prevalue
+                self.address_changes[preaddress]['balance'] -= prevalue
+                self.address_changes[preaddress]['sent'] += prevalue
             else:
-                self.address_changes[preaddress] = -prevalue
+                self.address_changes[preaddress] = {
+                    'balance': -prevalue,
+                    'sent': prevalue,
+                    'received': 0,
+                }
 
     def parse_vout(self, tx, txid, tx_data, vout, idx, batch=None, blockHeight=None):
         script = vout.scriptPubKey
@@ -361,9 +373,14 @@ class ChainDb(object):
         if batch:
             self.log.debug("Updating address %s with value %s" % (address, value))
             if address in self.address_changes:
-                self.address_changes[address] += value
+                self.address_changes[address]['balance'] += value
+                self.address_changes[address]['received'] += value
             else:
-                self.address_changes[address] = value
+                self.address_changes[address] = {
+                    'balance': value,
+                    'received': value,
+                    'sent': 0,
+                }
 
     def parse_tx(self, timestamp, bHash, bHeight, tx, batch=None):
         txid = b2lx(tx.GetHash())
@@ -655,17 +672,27 @@ class ChainDb(object):
                         continue
                     preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
                     if preaddress in self.address_changes:
-                        self.address_changes[preaddress] += prevalue
+                        self.address_changes[preaddress]['balance'] += prevalue
+                        self.address_changes[preaddress]['sent'] -= prevalue
                     else:
-                        self.address_changes[preaddress] = prevalue
+                        self.address_changes[preaddress] = {
+                            'balance': prevalue,
+                            'sent': -prevalue, # subtract from sent
+                            'received': 0,
+                        }
 
                 for idx, vout in enumerate(tx.vout):
                     address = self._address_from_vout(txid, vout)
                     value = vout.nValue
                     if address in self.address_changes:
-                        self.address_changes[address] -= value
+                        self.address_changes[address]['balance'] -= value
+                        self.address_changes[address]['received'] -= value
                     else:
-                        self.address_changes[address] = -value
+                        self.address_changes[address] = {
+                            'balance': -value,
+                            'received': -value,
+                            'sent': 0
+                        }
 
             self._update_address_index()
             self.checkaddresses(force=True)
@@ -675,11 +702,15 @@ class ChainDb(object):
 
     def _update_address_index(self):
         with self.db.write_batch(transaction=True) as addressBatch:
-            for key, value in self.address_changes.items():
-                temp = {'address': key, 'balance_change': value}
+            for key, addr in self.address_changes.items():
+                temp = {'address': key, 'balance_change': addr['balance']}
                 k = ('address:%s' % key).encode()
-                currbal = struct.unpack('l', self.db.get(k, struct.pack('l', 0)))[0]
-                addressBatch.put(k, struct.pack('l', currbal + value))
+                (balance, sent, received)  = struct.unpack('lll', self.db.get(k, struct.pack('lll', 0, 0, 0)))
+                addressBatch.put(k, struct.pack('lll', 
+                    balance + addr['balance'],
+                    sent + addr['sent'],
+                    received + addr['received'],
+                ))
                 self.address_change_count += 1
         self.address_changes = {}
 

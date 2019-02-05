@@ -13,16 +13,18 @@
         <tr mdbTableCol *ngFor="let entry of richlist; let i = index">
           <th>{{i + 1}}</th>
           <td scope="row"><a style="color: #007bff" (click)="goAddress(entry.address)">{{entry.address}}</a></td>
-          <td>{{entry.balance / 100000000}} TUX</td>
+          <td>{{entry.balance / environment.coin.division}} TUX</td>
         </tr>
       </tbody>
     </table>
   </div>
   <div class="col">
-    <div class="col-gray">
+    <div class="col-gray" *ngIf="distribution">
       <h2>
         Distribution
       </h2>
+
+      1-25 {{distribution['0_24']['total'] / environment.coin.division}}
     </div>
   </div>
 </div>

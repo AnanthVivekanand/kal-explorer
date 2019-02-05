@@ -17,7 +17,7 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
 from models import Address, Transaction, Block, Utxo
-from peewee import RawQuery
+from peewee import RawQuery, fn
 from datetime import datetime, timedelta
 # from webargs import fields, validate
 # from webargs.flaskparser import use_kwargs, parser
@@ -70,9 +70,16 @@ def tx_to_json(tx):
     }
 
 @app.get('/richlist')
-def read_richlist():
-    res = Address.select().order_by(Address.balance.desc()).limit(100)
-    return list(map(lambda addr : {'address': addr.address, 'balance': addr.balance}, res))
+def read_richlist(order=None):
+    q = Address.select()
+    if order == 'sent':
+        q = q.order_by(Address.sent.desc())
+    elif order == 'received':
+        q = q.order_by(Address.received.desc())
+    else:
+        q = q.order_by(Address.balance.desc())
+    res = q.limit(100)
+    return list(map(lambda addr : addr.to_dict(), res))
 
 def _utxo_map(block):
     def _func(utxo):
@@ -87,15 +94,15 @@ def _utxo_map(block):
         }
     return _func
 
+### Address section
+
 @app.get('/addr/{address}/balance')
 async def read_address(address : str):
     try:
         record = Address.get(address=address)
     except:
         return HTMLResponse(status_code=404)
-    return {
-        'balance': record.balance
-    }
+    return record.to_dict()
 
 @app.get('/addr/{address}/utxo')
 async def read_addr_utxos(address : str):
@@ -108,6 +115,9 @@ async def read_addrs_utxo(addresses : str):
     utxos = Utxo.select().where(Utxo.address.in_(addresses.split(',')))
     block = get_latest_block()
     return list(map(_utxo_map(block), utxos))
+
+
+### Transaction section
 
 @app.get('/tx/{txid}')
 def read_tx(txid : str):
@@ -178,6 +188,8 @@ def read_block_txs(block : str):
             'vout': tx.vout,
         })
         return res
+
+### Block section
 
 @app.get('/block/{blockhash}')
 def read_blockhash(blockhash):
@@ -258,6 +270,50 @@ def read_blocks(beforeBlock=None):
             'nonce': b.nonce,
             'pool': pool
         })
+    return res
+
+### Misc
+
+@app.get('/misc')
+def read_misc():
+    supply = Address.select(fn.SUM(Address.balance)).execute()[0].sum
+
+    return {
+        'supply': int(supply),
+    }
+
+# TODO: Probably should cache this method
+@app.get('/distribution')
+def read_distribution():
+    supply = Address.select(fn.SUM(Address.balance)).execute()[0].sum
+
+    res = {}
+    sq = Address.select(Address.balance).order_by(Address.balance.desc()).limit(25)
+    q = Address.select(fn.SUM(sq.c.balance)).from_(sq)
+
+    res['0_24'] = {
+        'percent': (q[0].sum / supply) * 100,
+        'total': q[0].sum
+    }
+    sq = Address.select(Address.balance).order_by(Address.balance.desc()).offset(25).limit(25)
+    q = Address.select(fn.SUM(sq.c.balance)).from_(sq)
+    res['25_49'] = {
+        'percent': (q[0].sum / supply) * 100,
+        'total': q[0].sum
+    }
+    sq = Address.select(Address.balance).order_by(Address.balance.desc()).offset(50).limit(25)
+    q = Address.select(fn.SUM(sq.c.balance)).from_(sq)
+    res['50_99'] = {
+        'percent': (q[0].sum / supply) * 100,
+        'total': q[0].sum
+    }
+    sq = Address.select(Address.balance).order_by(Address.balance.desc()).offset(100)
+    q = Address.select(fn.SUM(sq.c.balance)).from_(sq)
+    res['remain'] = {
+        'percent': (q[0].sum / supply) * 100,
+        'total': q[0].sum
+    }
+
     return res
 
 @app.get('/mempool')
