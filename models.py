@@ -40,7 +40,7 @@ class Utxo(BaseModel):
     address = CharField(index=True)
     txid_vout = CharField(index=True, unique=True)
     # vout = IntegerField()
-    scriptPubKey = CharField() # is this needed?
+    scriptPubKey = CharField()
     amount = BigIntegerField()
     block_height = IntegerField(null=True)
     # timestamp = DateTimeField()

@@ -361,7 +361,7 @@ class ChainDb(object):
             self.log.warn('scriptPubKey invalid txid=%s scriptPubKey=%s value=%s' % (txid, b2lx(vout.scriptPubKey), vout.nValue))
             return
         value = vout.nValue
-        self.pututxo(txid, idx, address, value, wb=batch, scriptPubKey=b2lx(script), blockHeight=blockHeight)
+        self.pututxo(txid, idx, address, value, wb=batch, scriptPubKey=vout.scriptPubKey.hex(), blockHeight=blockHeight)
         tx_data["vout"].append({"address": address, "value": value})
         if address in tx_data["addresses_out"]:
             tx_data["addresses_out"][address] += value
