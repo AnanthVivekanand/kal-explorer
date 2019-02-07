@@ -29,8 +29,8 @@ export class WalletComponent {
     mnemonic : string = null;
     saved = false;
     show_mnemonic = false;
-    seed : Buffer = null
-    node : BIP32;
+    // seed : Buffer = null
+    // node : BIP32;
 
     constructor(private router: Router, private route: ActivatedRoute) {
         
@@ -39,8 +39,8 @@ export class WalletComponent {
     createWallet() {
         this.mnemonic = bip39.generateMnemonic()
         this.show_mnemonic = true;
-        this.seed = bip39.mnemonicToSeed(this.mnemonic);
-        this.node = fromSeed(this.seed, TUXCOIN);
+        // this.seed = bip39.mnemonicToSeed(this.mnemonic);
+        // this.node = fromSeed(this.seed, TUXCOIN);
     }
 
     savedBackupWords() {
@@ -48,8 +48,8 @@ export class WalletComponent {
     }
 
     getAddress(path : string = 'm/0/0') {
-        const child = this.node.derivePath(path)
-        const { address } = bitcoin.payments.p2wpkh({ pubkey: child.publicKey, network: TUXCOIN});
+        // const child = this.node.derivePath(path)
+        // const { address } = bitcoin.payments.p2wpkh({ pubkey: child.publicKey, network: TUXCOIN});
     }
 };
 
