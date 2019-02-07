@@ -9,17 +9,13 @@ export class WalletService {
 
   constructor(private http: HttpClient) { }
 
-  blocksUrl = `${environment.url_base}/addr`;
+  blocksUrl = `http://45.77.228.139/api/addr`;
 
   getBalance(address : String) : any {
     return this.http.get(`${this.blocksUrl}/${address}/balance`).toPromise();
   }
 
-  getRichList() : any {
-    return this.http.get(`${environment.url_base}/richlist`).toPromise();
-  }
-
-  getDistribution() : any {
-    return this.http.get(`${environment.url_base}/distribution`).toPromise();
+  getUtxos(address : String) : any {
+    return this.http.get(`${this.blocksUrl}/${address}/utxo`).toPromise();
   }
 }

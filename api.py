@@ -86,7 +86,7 @@ def _utxo_map(block):
         txid, vout = utxo.txid_vout.split(':')
         return {
             'txid': txid,
-            'vout': vout,
+            'vout': int(vout),
             'amount': utxo.amount,
             'scriptPubKey': utxo.scriptPubKey,
             'address': utxo.address,
