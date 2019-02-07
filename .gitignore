@@ -1,3 +1,5 @@
 .vscode/
 chainstate/
 data/
+*.pyc
+.env

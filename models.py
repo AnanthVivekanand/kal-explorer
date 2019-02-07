@@ -1,7 +1,8 @@
+import settings
 from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, FloatField, BigIntegerField, BlobField, TextField, BooleanField
 from playhouse.postgres_ext import BinaryJSONField
 
-db = PostgresqlDatabase('tuxcoin', user='postgres', password='postgres', host='localhost', port=5432)
+db = PostgresqlDatabase('tuxcoin', user='postgres', password='postgres', host=settings.DB_HOST, port=5432)
 
 class BaseModel(Model):
     class Meta:

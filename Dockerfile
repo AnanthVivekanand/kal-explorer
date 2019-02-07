@@ -1,18 +1,14 @@
-FROM python:3.7.2-slim-stretch
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.7-alpine3.8
 
-RUN set -ex ; \
-    apt-get update ; \
-    apt-get install libssl1.0-dev libsecp256k1-dev -y ; \
-    rm -rf /var/lib/apt/lists/*
+RUN pip install pipenv
 
-RUN set -ex ; \
-    pip install pipenv
+RUN apk add --no-cache postgresql-client postgresql-dev gcc libc-dev g++ make && \
+    apk --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --no-cache add leveldb leveldb-dev
 
-WORKDIR /usr/src/app
+COPY . /app
 
-COPY Pipfile .
-COPY Pipfile.lock .
+WORKDIR /app
 
-RUN pipenv install --python 3
+RUN pipenv lock --requirements > requirements.txt && pip install -r requirements.txt
 
-CMD ["/usr/local/bin/pipenv", "run", "python", "sync.py"]
+RUN rm main.py ; ln -s api.py main.py

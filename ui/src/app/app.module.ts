@@ -9,6 +9,7 @@ import { AddressComponent } from './address.component';
 import { TransactionComponent } from './transaction.component';
 import { TransactionBlockComponent } from './components/transaction.component';
 import { RichListComponent } from './richlist.component';
+import { WalletComponent } from './wallet/wallet.component';
 
 import { MDBBootstrapModule } from 'angular-bootstrap-md';
 import { HttpClientModule } from '@angular/common/http';
@@ -25,7 +26,8 @@ import { InfiniteScrollModule } from 'ngx-infinite-scroll';
     TransactionComponent,
     AddressComponent,
     RichListComponent,
-    TransactionBlockComponent
+    TransactionBlockComponent,
+    WalletComponent,
   ],
   imports: [
     BrowserModule,

@@ -1,0 +1,7 @@
+<div class="col-4 col-gray">
+    <div class="md-form" *ngIf="!wallet_exists">
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="createWallet()">Create wallet</button>
+        <textarea type="text" id="form8" class="md-textarea form-control" mdbInputDirective>{{mnemonic}}</textarea>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="savedBackupWords()">I have saved backup words</button>
+    </div>
+</div>

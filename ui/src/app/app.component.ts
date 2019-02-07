@@ -9,7 +9,7 @@ import {Router} from '@angular/router';
 })
 export class AppComponent implements OnInit {
   title = 'ui';
-  status = {};
+  status : any = {};
 
   constructor(private router : Router, private statusService : StatusService){ }
 

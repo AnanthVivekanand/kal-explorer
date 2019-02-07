@@ -1,10 +1,10 @@
 <div class="tx">
   <div class="row">
-    <div class="col-7"><a (click)="goTx()" tabindex="1">{{tx.txid}}</a></div>
+    <div class="col-7 ellipsis"><a (click)="goTx()" tabindex="1">{{tx.txid}}</a></div>
     <div class="col-5 text-muted" style="text-align: right">{{timestamp()}}</div>
   </div>
   <div class="row" style="padding-top: 15px; border-top:1px solid #ccc; margin-top: 10px">
-    <div class="col-5">
+    <div class="col-md-5">
       <div *ngIf="is_coinbase()">
         No Inputs (Newly Generated Coins)
       </div>
@@ -17,12 +17,12 @@
         </div>
       </div>
     </div>
-    <div class="col-1" style="text-align: center">
+    <div class="col-md-1" style="text-align: center">
       <div class="hidden-xs hidden-sm text-center">
         <span class="fas fa-chevron-right"></span>
       </div>
     </div>
-    <div class="col-6" style="text-align: left;">
+    <div class="col-md-6" style="text-align: left;">
       <div class="panel panel-default" *ngFor="let key of keys_out">
         <div class="panel-body">
           <div class="pull-right">{{parse_value(tx.addresses_out[key])}} TUX</div>
