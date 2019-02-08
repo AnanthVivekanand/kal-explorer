@@ -24,6 +24,11 @@ const TUXCOIN = {
     wif: 0xc1
 }
 
+class Address {
+    address : string;
+    path: string;
+}
+
 @Component({
     templateUrl: './wallet.component.html',
     styleUrls: ['./wallet.component.scss']
@@ -37,7 +42,7 @@ export class WalletComponent implements OnInit {
     show_mnemonic = false;
     seed : Buffer = null
     wallet : BIP32;
-    addresses : string[] = [];
+    addresses : Address[] = [];
     mnemonic_valid = null;
     balance : number = 0;
     send_address : string;
@@ -102,7 +107,7 @@ export class WalletComponent implements OnInit {
 
     savedBackupWords() {
         this.wallet = fromSeed(this.seed, TUXCOIN);
-        this.getAddress();
+        this.loadWallet();
     }
 
     doImport() {
@@ -110,41 +115,58 @@ export class WalletComponent implements OnInit {
         this.seed = bip39.mnemonicToSeed(this.mnemonic);
         this.setMnemonic(this.mnemonic);
         this.wallet = fromSeed(this.seed, TUXCOIN);
-        this.getAddress();
+        this.loadWallet();
     }
 
-    getAddress(path : string = 'm/0/0') {
-        const child = this.wallet.derivePath(path)
-        const { address } = bitcoin.payments.p2wpkh({ pubkey: child.publicKey, network: TUXCOIN});
+    loadWallet() {
+        let address = this.getAddress();
+        this.addresses.push(address);
+        address = this.getChangeAddress();
         this.addresses.push(address);
         this.updateBalance();
     }
 
+    getAddress(path : string = 'm/0/0') : any {
+        const child = this.wallet.derivePath(path)
+        const { address } = bitcoin.payments.p2wpkh({ pubkey: child.publicKey, network: TUXCOIN});
+        return {
+            path,
+            address
+        };
+    }
+
     async updateBalance() {
+        this.balance = 0;
         for(let address of this.addresses) {
-            const res = await this.walletService.getBalance(address);
+            const res = await this.walletService.getBalance(address.address);
             this.balance += res.balance;
         }
     }
 
-    getChangeAddress(path : string = 'm/1/0') : string {
-        const child = this.wallet.derivePath(path)
-        const { address } = bitcoin.payments.p2wpkh({ pubkey: child.publicKey, network: TUXCOIN});
-        return address;
+    getChangeAddress(path : string = 'm/1/0') : any {
+        return this.getAddress(path);
+    }
+
+    async _getUtxos() {
+        const utxos = []
+        for(let address of this.addresses){
+            const _utxos = await this.walletService.getUtxos(address.address);
+            for(let u of _utxos){
+                utxos.push({
+                    'txid': u.txid,
+                    'vout': parseInt(u.vout),
+                    'value': u.amount,
+                    'scriptPubKey': u.scriptPubKey,
+                    'path': address.path,
+                });
+            } 
+        }
+        return utxos;
     }
 
     async send() {
-        const _utxos = await this.walletService.getUtxos(this.addresses[0]);
-        const utxos = []
-        for(let u of _utxos){
-            utxos.push({
-                'txid': u.txid,
-                'vout': parseInt(u.vout),
-                'value': u.amount,
-                'scriptPubKey': u.scriptPubKey,
-                'path': 'm/0/0',
-            });
-        }
+        const utxos = await this._getUtxos();
+        console.log(utxos);
         const targets = [{
             'address': this.send_address,
             'value': this.send_amount,
@@ -165,7 +187,7 @@ export class WalletComponent implements OnInit {
         });
         outputs.forEach(output => {
             if (!output.address) {
-                output.address = this.getChangeAddress();
+                output.address = this.getChangeAddress().address;
             }
             console.log('Adding output', output);
             txb.addOutput(output.address, output.value)
@@ -183,6 +205,7 @@ export class WalletComponent implements OnInit {
         tx.outs.forEach((out, i) => {
             console.log(`Will send ${out.value} to ` + bitcoin.address.fromOutputScript(out.script, TUXCOIN));
         })
+        console.log(`Signed tx: ${hex}`);
 
     }
 };

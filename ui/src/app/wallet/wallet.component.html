@@ -25,7 +25,7 @@
     <div class="md-form" *ngIf="addresses">
       <h2>Addresses</h2>
       <div *ngFor="let address of addresses">
-        {{address}}
+        {{address.address}}
       </div>
       <div>
         Balance: {{balance / environment.coin.division}}
