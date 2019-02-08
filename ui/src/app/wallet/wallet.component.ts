@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 // import * as moment from 'moment';
 // import { Observable } from 'rxjs';
@@ -8,6 +8,9 @@ import bip39 from 'bip39';
 import { fromSeed, BIP32 } from 'bip32';
 import coinSelect from 'coinselect';
 import { WalletService } from './wallet.service';
+import * as CryptoJS from 'crypto-js';
+import { environment } from '../../environments/environment';
+import { HttpXsrfCookieExtractor } from '@angular/common/http/src/xsrf';
  
 const TUXCOIN = {
     messagePrefix: '\x19Tuxcoin Signed Message:\n',
@@ -23,16 +26,15 @@ const TUXCOIN = {
 
 @Component({
     templateUrl: './wallet.component.html',
-    // styleUrls: ['./address.component.scss']
+    styleUrls: ['./wallet.component.scss']
 })
-export class WalletComponent {
+export class WalletComponent implements OnInit {
     title = 'Address';
     wallet_import = false;
     wallet_create = false;
     mnemonic : string = null;
     saved = false;
     show_mnemonic = false;
-    import_wallet = false;
     seed : Buffer = null
     wallet : BIP32;
     addresses : string[] = [];
@@ -40,14 +42,56 @@ export class WalletComponent {
     balance : number = 0;
     send_address : string;
     send_amount : number;
+    environment = environment;
 
     constructor(private router: Router, private route: ActivatedRoute, private walletService : WalletService) {
         
     }
 
+    ngOnInit() {
+        this.mnemonic = this.getMnemonic();
+        this.doImport();
+    }
+
+    reset() {
+        this.wallet = null;
+        this.seed = null;
+        this.mnemonic = null;
+        this.wallet_import = false;
+        this.wallet_create = false;
+        this.saved = false;
+        this.show_mnemonic = false;
+        this.addresses = [];
+        this.mnemonic_valid = null;
+        this.balance = 0;
+        this.send_address = null;
+        this.send_amount = null;
+    }
+
+    logout() {
+        this.clearMnemonic();
+        this.reset();
+    }
+
+    clearMnemonic() {
+        localStorage.removeItem('mnemonic');
+    }
+
+    getMnemonic() : string {
+        const cipherText = localStorage.getItem('mnemonic')
+        const bytes = CryptoJS.AES.decrypt(cipherText, 'key');
+        return bytes.toString(CryptoJS.enc.Utf8)
+    }
+
+    setMnemonic(mnemonic : string) {
+        const cipherText = CryptoJS.AES.encrypt(mnemonic, 'key').toString();
+        localStorage.setItem('mnemonic', cipherText);
+    }
+
     createWallet() {
         this.wallet_create = true;
-        this.mnemonic = bip39.generateMnemonic()
+        this.mnemonic = bip39.generateMnemonic();
+        this.setMnemonic(this.mnemonic);
         this.show_mnemonic = true;
         this.seed = bip39.mnemonicToSeed(this.mnemonic);
     }
@@ -64,6 +108,7 @@ export class WalletComponent {
     doImport() {
         this.mnemonic_valid = bip39.validateMnemonic(this.mnemonic);
         this.seed = bip39.mnemonicToSeed(this.mnemonic);
+        this.setMnemonic(this.mnemonic);
         this.wallet = fromSeed(this.seed, TUXCOIN);
         this.getAddress();
     }
@@ -96,72 +141,49 @@ export class WalletComponent {
                 'txid': u.txid,
                 'vout': parseInt(u.vout),
                 'value': u.amount,
-                'scriptPubKey': u.scriptPubKey
+                'scriptPubKey': u.scriptPubKey,
+                'path': 'm/0/0',
             });
         }
         const targets = [{
             'address': this.send_address,
             'value': this.send_amount,
         }];
-        console.log(utxos, targets);
         let feeRate = 700; // satoshis per byte
         let { inputs, outputs, fee } = coinSelect(utxos, targets, feeRate)
 
-        console.log(inputs, outputs, fee)
-
-        if (!inputs || !outputs) return
+        if (!inputs || !outputs) {
+            console.log(inputs, outputs);
+            return;
+        }
 
         let txb = new bitcoin.TransactionBuilder(TUXCOIN);
 
-        inputs.forEach(input => txb.addInput(input.txid, input.vout, null, Buffer.from(input.scriptPubKey, 'hex')))
+        inputs.forEach(input => {
+            console.log('Adding input', input);
+            txb.addInput(input.txid, input.vout, null, Buffer.from(input.scriptPubKey, 'hex'))
+        });
         outputs.forEach(output => {
             if (!output.address) {
                 output.address = this.getChangeAddress();
             }
-
+            console.log('Adding output', output);
             txb.addOutput(output.address, output.value)
         });
-        txb.sign(0, this.wallet.derivePath('m/0/0'), null, null, inputs[0].value)
-        console.log(txb.build().toHex());
-    }
+        inputs.forEach((input, i) => {
+            console.log('Signing utxo', i, input);
+            txb.sign(i, this.wallet.derivePath(input.path), null, null, input.value)
+        });
+        // txb.sign(0, this.wallet.derivePath('m/0/0'), null, null, inputs[0].value)
+        const hex = txb.build().toHex();
 
-    test(){
-        let feeRate = 55 // satoshis per byte
-        let utxos = [
-        {
-            txId: '96568edf8b9b847e1cf5429101fbef8ac2901224b64c22bd412bd32ae1f61bcf',
-            vout: 0,
-            value: 1000000
-        }
-        ]
-        let targets = [
-        {
-            address: 'TBurnerEUjv3LGZ1r2MW1cE2Nrg4GKVD7x',
-            value: 5000
-        }
-        ]
+        const tx = bitcoin.Transaction.fromHex(hex);
 
-        // ...
-        let { inputs, outputs, fee } = coinSelect(utxos, targets, feeRate)
-
-        // the accumulated fee is always returned for analysis
-        console.log(fee)
-
-        // .inputs and .outputs will be undefined if no solution was found
-        if (!inputs || !outputs) return
-
-        let txb = new bitcoin.TransactionBuilder(TUXCOIN);
-
-        inputs.forEach(input => txb.addInput(input.txId, input.vout))
-        outputs.forEach(output => {
-            // watch out, outputs may have been added that you need to provide
-            // an output address/script for
-            if (!output.address) {
-                output.address = this.getChangeAddress();
-            }
-
-            txb.addOutput(output.address, output.value)
+        console.log(tx.outs);
+        tx.outs.forEach((out, i) => {
+            console.log(`Will send ${out.value} to ` + bitcoin.address.fromOutputScript(out.script, TUXCOIN));
         })
+
     }
 };
 
