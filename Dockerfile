@@ -28,15 +28,14 @@ RUN npm install && ./node_modules/.bin/rn-nodeify --install process --hack
 COPY ui /data/ui/
 RUN ng build --prod
 
-COPY ui/config/nginx.conf /etc/nginx/nginx.conf
-COPY ui/config/nginx.vh.default.conf /etc/nginx/conf.d/default.conf
-
 WORKDIR /data/api
 
 RUN pipenv lock --requirements > requirements.txt && pip install -r requirements.txt
 
 COPY config/services.d/ /etc/services.d/
 COPY config/gunicorn_conf.py /gunicorn_conf.py
+COPY config/nginx.conf /etc/nginx/nginx.conf
+COPY config/nginx.vh.default.conf /etc/nginx/conf.d/default.conf
 
 ENV GUNICORN_CONF       /gunicorn_conf.py
 ENV DEFAULT_MODULE_NAME api.main:app
@@ -46,4 +45,5 @@ COPY api/* /data/api/
 COPY shared /data/shared
 
 WORKDIR /data
-RUN touch /data/__init__.py ; ls -l /data/
+
+EXPOSE 80
