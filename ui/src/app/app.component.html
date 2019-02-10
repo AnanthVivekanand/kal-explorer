@@ -2,7 +2,7 @@
 <mdb-navbar SideClass="navbar navbar-expand-lg navbar-dark indigo">
 
   <!-- Navbar brand -->
-  <mdb-navbar-brand><a class="navbar-brand" (click)="goHome()">Explorer</a></mdb-navbar-brand>
+  <mdb-navbar-brand><a class="navbar-brand" (click)="goHome()" tabindex="0">Explorer</a></mdb-navbar-brand>
 
   <!-- Collapsible content -->
   <links>
@@ -34,7 +34,7 @@
 
       <form class="form-inline">
         <div class="md-form my-0">
-          <input class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address" style="padding-bottom: 0px; width: 300px">
+          <input class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address" (keydown.enter)="doSearch()" style="padding-bottom: 0px; width: 300px">
         </div>
       </form>
 

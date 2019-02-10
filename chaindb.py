@@ -123,6 +123,8 @@ class ChainDb(object):
         self.checkblocks(0, True)
         self.checkutxos(True)
         self.initial_sync = True
+        self.orphans = {}
+        self.orphan_deps = {}
 
     def locate(self, locator):
         return 0
@@ -133,15 +135,15 @@ class ChainDb(object):
     def getlocator(self):
         vHave = [self.gettophash()]
         height = struct.unpack('i', self.db.get(b'misc:height'))[0]
-        if height > 100:
-            data = self.db.get(('height:%s' % (height - 100)).encode())
+        if height > 25:
+            data = self.db.get(('height:%s' % (height - 25)).encode())
             heightidx = HeightIdx()
             heightidx.deserialize(data)
             vHave = vHave + heightidx.blocks
         return vHave
 
-    def haveblock(self, sha256, _):
-        return False
+    # def haveblock(self, sha256, _):
+    #     return False
 
     def getheight(self):
         d = self.db.get(b'misc:height')
@@ -451,10 +453,36 @@ class ChainDb(object):
         self.checkutxos(force=True)
         gevent.spawn_later(5, self.db_sync)
 
+    def haveblock(self, blkhash, checkorphans):
+        #TODO: add block cache
+        # if self.blk_cache.exists(blkhash):
+        #     return True
+        if checkorphans and blkhash in self.orphans:
+            return True
+        ser_hash = b2lx(blkhash)
+        block = self.db.get(('blocks:'+ser_hash).encode())
+        return block is not None
+
+    def have_prevblock(self, block):
+        if self.getheight() < 0 and b2lx(block.GetHash()) == 'cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7':
+            return True
+        if self.haveblock(block.hashPrevBlock, False):
+            return True
+        return False
+
     def putoneblock(self, block, initsync=True):
-        if block.hashPrevBlock != self.gettophash():
-            print("Cannot connect block to chain %s %s" % (b2lx(block.GetHash()), b2lx(self.gettophash())))
-            return
+
+        
+        if not self.have_prevblock(block):
+            self.orphans[block.GetHash()] = True
+            self.orphan_deps[block.hashPrevBlock] = block
+            self.log.warn("Orphan block %s (%d orphans)" % (b2lx(block.GetHash()), len(self.orphan_deps)))
+            return False
+
+
+        # if block.hashPrevBlock != self.gettophash():
+        #     print("Cannot connect block to chain %s %s" % (b2lx(block.GetHash()), b2lx(self.gettophash())))
+        #     return
 
         top_height = self.getheight()
         top_work = bytes_to_int(self.db.get(b'misc:total_work'))
@@ -576,16 +604,16 @@ class ChainDb(object):
             if fork == 0:
                 return False
 
-        self.log.warn("REORG disconnecting top hash %064x" % (old_best_blkhash,))
-        self.log.warn("REORG connecting new top hash %064x" % (new_best_blkhash,))
-        self.log.warn("REORG chain union point %064x" % (fork,))
+        self.log.warn("REORG disconnecting top hash %s" % (b2lx(old_best_blkhash),))
+        self.log.warn("REORG connecting new top hash %s" % (b2lx(new_best_blkhash),))
+        self.log.warn("REORG chain union point %s" % (b2lx(fork),))
         self.log.warn("REORG disconnecting %d blocks, connecting %d blocks" % (len(disconn), len(conn)))
 
         for block in disconn:
             if not self.disconnect_block(block):
                 return False
 
-        for block in conn:
+        for block in conn.reverse():
             if not self.connect_block(b2lx(block.GetHash()), block, self.getblockmeta(block.GetHash())):
                 return False
 
@@ -774,7 +802,7 @@ class ChainDb(object):
 
     def putblock(self, block):
         if self.haveblock(block.GetHash(), True):
-            self.log.info("Duplicate block %064x submitted" % (block.GetHash(), ))
+            self.log.info("Duplicate block %s submitted" % (b2lx(block.GetHash()), ))
             return False
         return self.putoneblock(block)
 

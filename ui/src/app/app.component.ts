@@ -30,4 +30,11 @@ export class AppComponent implements OnInit {
     this.router.navigate(['richlist'])
   }
 
+  doSearch() {
+    // 1. Address
+    // 2. Block hash
+    // 3. Block height
+    // 4. TxID
+  }
+
 }

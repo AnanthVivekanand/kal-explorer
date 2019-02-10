@@ -169,7 +169,7 @@ export class WalletComponent implements OnInit {
         console.log(utxos);
         const targets = [{
             'address': this.send_address,
-            'value': this.send_amount,
+            'value': this.send_amount / environment.coin.division,
         }];
         let feeRate = 700; // satoshis per byte
         let { inputs, outputs, fee } = coinSelect(utxos, targets, feeRate)
