@@ -8,7 +8,7 @@ import io
 import json
 import threading
 from datetime import datetime
-from cache import Cache
+from sync.cache import Cache
 from shared.models import Block, Transaction, Address, AddressChanges, Utxo, db
 
 from bitcoin.messages import msg_block, MsgSerializable
