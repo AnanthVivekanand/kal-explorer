@@ -5,7 +5,7 @@ import { TransactionService } from './transactions.service';
 import { environment } from '../environments/environment';
 import * as moment from 'moment';
 import { Observable } from 'rxjs';
-// import { QRCodeModule } from 'angularx-qrcode';
+import { Title }  from '@angular/platform-browser';
 
 
 @Component({
@@ -14,7 +14,6 @@ import { Observable } from 'rxjs';
     styleUrls: ['./address.component.scss']
 })
 export class AddressComponent implements OnInit {
-    title = 'Address';
     balance: Number;
     sent : Number;
     received : Number;
@@ -29,7 +28,11 @@ export class AddressComponent implements OnInit {
 
     lastTime : Number;
 
-    constructor(private router: Router, private route: ActivatedRoute, private addressService: AddressService, private txService: TransactionService) {
+    constructor(private router: Router, 
+        private route: ActivatedRoute, 
+        private addressService: AddressService, 
+        private txService: TransactionService,
+        private titleService : Title) {
 
     }
 
@@ -41,6 +44,7 @@ export class AddressComponent implements OnInit {
     ngOnInit() {
         this.route.params.subscribe(params => {
             this.address = params['address'];
+            this.titleService.setTitle(this.address);
             this.addressService.getBalance(this.address).then(data => {
                 this.balance = data.balance / environment.coin.division;
                 this.sent = data.sent / environment.coin.division;

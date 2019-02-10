@@ -17,6 +17,8 @@ import { HttpClientModule } from '@angular/common/http';
 import { NgxQRCodeModule } from 'ngx-qrcode2';
 import { InfiniteScrollModule } from 'ngx-infinite-scroll';
 import { FormsModule } from '@angular/forms';
+import { Title }  from '@angular/platform-browser';
+
 
 
 @NgModule({
@@ -39,7 +41,7 @@ import { FormsModule } from '@angular/forms';
     FormsModule,
     InfiniteScrollModule
   ],
-  providers: [],
+  providers: [Title],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

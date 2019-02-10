@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import {Router} from "@angular/router";
 import { AddressService } from './address.service';
 import { environment } from '../environments/environment';
+import { Title }  from '@angular/platform-browser';
+
 
 @Component({
   templateUrl: './richlist.component.html',
@@ -13,7 +15,8 @@ export class RichListComponent {
   distribution : object;
   environment = environment;
 
-  constructor(private router : Router, private addressService : AddressService) {
+  constructor(private router : Router, private addressService : AddressService, private titleService : Title) {
+    titleService.setTitle('Rich List');
     this.addressService.getRichList().then(data => {
         this.richlist = data;
     });

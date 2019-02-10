@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv sh
+
+cd /data/api
+ls -l
+echo $DEFAULT_MODULE_NAME
+exec /usr/local/bin/gunicorn -k uvicorn.workers.UvicornWorker -c "${GUNICORN_CONF}" "${DEFAULT_MODULE_NAME}"

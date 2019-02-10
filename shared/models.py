@@ -1,4 +1,4 @@
-import settings
+from shared import settings
 from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, FloatField, BigIntegerField, BlobField, TextField, BooleanField
 from playhouse.postgres_ext import BinaryJSONField
 

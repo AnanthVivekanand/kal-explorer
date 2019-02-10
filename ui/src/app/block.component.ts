@@ -4,6 +4,7 @@ import { BlocksService } from './blocks.service';
 import { TransactionBlockComponent } from './components/transaction.component';
 import * as moment from 'moment';
 import { Observable } from 'rxjs';
+import { Title }  from '@angular/platform-browser';
 
 
 @Component({
@@ -12,11 +13,10 @@ import { Observable } from 'rxjs';
     styleUrls: ['./block.component.scss']
 })
 export class BlockComponent implements OnInit {
-    title = 'Block';
     block: any;
     sub : any;
 
-    constructor(private router : Router, private route: ActivatedRoute, private blocksService: BlocksService) {
+    constructor(private router : Router, private route: ActivatedRoute, private blocksService: BlocksService, private titleService : Title) {
         // blocksService.getBlock(this.route.snapshot.params['blockhash'])
         //     .subscribe((data: any) => this.block = data)
     }
@@ -24,6 +24,7 @@ export class BlockComponent implements OnInit {
     ngOnInit() {
         this.sub = this.route.params.subscribe(params => {
             const blockhash = params['blockhash'];
+            this.titleService.setTitle(blockhash);
             this.blocksService.getBlock(blockhash).toPromise().then(data => { this.block = data });
           });
     }

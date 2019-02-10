@@ -4,6 +4,7 @@ import { AddressService } from './address.service';
 import { TransactionService } from './transactions.service';
 import * as moment from 'moment';
 import { Observable } from 'rxjs';
+import { Title }  from '@angular/platform-browser';
 
 
 @Component({
@@ -11,17 +12,17 @@ import { Observable } from 'rxjs';
     // styleUrls: ['./address.component.scss']
 })
 export class TransactionComponent implements OnInit {
-    title = 'Transaction';
     txid: string;
     tx: any;
 
-    constructor(private router: Router, private route: ActivatedRoute, private txService: TransactionService) {
+    constructor(private router: Router, private route: ActivatedRoute, private txService: TransactionService, private titleService : Title) {
 
     }
 
     ngOnInit() {
         this.route.params.subscribe(params => {
             this.txid = params['txid'];
+            this.titleService.setTitle(this.txid);
             this.txService.getTransaction(this.txid).then(data => {
                 this.tx = data;
             })

@@ -45,3 +45,10 @@
     </div>
   </div>
 </div>
+<div class="row">
+  <div class="col-12 col-gray" *ngIf="wallet">
+    <div *ngFor="let item of log">
+      <span style="word-break: break-word;">{{item}}</span>
+    </div>
+  </div>
+</div>

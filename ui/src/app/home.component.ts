@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { BlocksService } from './blocks.service';
 import {Router} from "@angular/router";
 import * as moment from 'moment';
+import { Title }  from '@angular/platform-browser';
 
 
 @Component({
@@ -13,9 +14,10 @@ export class HomeComponent {
   title = 'ui';
   blocks : any [];
 
-  constructor(private router : Router, blocksService : BlocksService) {
+  constructor(private router : Router, blocksService : BlocksService, private titleService : Title) {
     blocksService.getBlocks()
     .subscribe((data: [any]) => this.blocks = data)
+    this.titleService.setTitle('Home | Explorer')
   }
 
   goBlock(blockhash : String) {

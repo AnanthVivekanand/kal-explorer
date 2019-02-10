@@ -9,7 +9,7 @@ import json
 import threading
 from datetime import datetime
 from cache import Cache
-from models import Block, Transaction, Address, AddressChanges, Utxo, db
+from shared.models import Block, Transaction, Address, AddressChanges, Utxo, db
 
 from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock

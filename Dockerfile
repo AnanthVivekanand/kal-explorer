@@ -1,14 +1,49 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.7-alpine3.8
+FROM python:3.7-alpine3.8
+
+RUN apk add --no-cache curl \
+ && curl -L -s https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.5/s6-overlay-amd64.tar.gz \
+  | tar xvzf - -C / \
+ && apk del --no-cache curl
+
+ENTRYPOINT [ "/init" ]
 
 RUN pip install pipenv
 
-RUN apk add --no-cache postgresql-client postgresql-dev gcc libc-dev g++ make && \
-    apk --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --no-cache add leveldb leveldb-dev
+RUN set -ex; \
+    apk add --no-cache python2 nginx postgresql-client postgresql-dev gcc libc-dev g++ make nodejs npm libc-dev --virtual .build-deps; \
+    apk --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --no-cache add leveldb leveldb-dev ; \
+    npm config set unsafe-perm true ; \
+    npm install -g @angular/cli ; \
+    mkdir -p /data/api /data/ui ; \
+    pip install uvicorn gunicorn
 
-COPY . /app
+COPY Pipfile /data/api/
+COPY Pipfile.lock /data/api/
 
-WORKDIR /app
+COPY ui/package.json /data/ui/
+COPY ui/package-lock.json /data/ui/
+
+WORKDIR /data/ui
+RUN npm install && ./node_modules/.bin/rn-nodeify --install process --hack
+COPY ui /data/ui/
+RUN ng build --prod
+
+COPY ui/config/nginx.conf /etc/nginx/nginx.conf
+COPY ui/config/nginx.vh.default.conf /etc/nginx/conf.d/default.conf
+
+WORKDIR /data/api
 
 RUN pipenv lock --requirements > requirements.txt && pip install -r requirements.txt
 
-RUN rm main.py ; ln -s api.py main.py
+COPY config/services.d/ /etc/services.d/
+COPY config/gunicorn_conf.py /gunicorn_conf.py
+
+ENV GUNICORN_CONF       /gunicorn_conf.py
+ENV DEFAULT_MODULE_NAME api.main:app
+ENV PYTHONPATH          /data
+
+COPY api/* /data/api/
+COPY shared /data/shared
+
+WORKDIR /data
+RUN touch /data/__init__.py ; ls -l /data/

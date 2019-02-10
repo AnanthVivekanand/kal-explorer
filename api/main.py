@@ -16,7 +16,7 @@ from starlette.responses import HTMLResponse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
-from models import Address, Transaction, Block, Utxo
+from shared.models import Address, Transaction, Block, Utxo
 from peewee import RawQuery, fn
 from datetime import datetime, timedelta
 # from webargs import fields, validate

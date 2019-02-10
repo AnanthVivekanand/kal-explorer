@@ -18,7 +18,7 @@ export class TransactionService {
     return this.http.get(`${this.txUrl}/txs/${addr}`).toPromise();
   }
 
-  getTransaction(txid : string) : any {
+  getTransaction(txid : string) : Promise<any> {
     return this.http.get(`${this.txUrl}/tx/${txid}`).toPromise();
   }
 }

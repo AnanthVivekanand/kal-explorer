@@ -9,12 +9,12 @@
 
     <!-- Links -->
     <ul class="navbar-nav mr-auto">
-      <li class="nav-item active">
-        <a class="nav-link waves-light" (click)="goHome()" mdbWavesEffect>Home<span class="sr-only">(current)</span></a>
-      </li>
       <li class="nav-item">
-        <a class="nav-link waves-light" (click)="goBlocks()" mdbWavesEffect>Blocks</a>
+        <a class="nav-link waves-light" (click)="goHome()" mdbWavesEffect>Home</a>
       </li>
+      <!-- <li class="nav-item">
+        <a class="nav-link waves-light" (click)="goBlocks()" mdbWavesEffect>Blocks</a>
+      </li> -->
       <li class="nav-item">
         <a class="nav-link waves-light" (click)="goRichList()" mdbWavesEffect>Rich List</a>
       </li>
@@ -34,7 +34,8 @@
 
       <form class="form-inline">
         <div class="md-form my-0">
-          <input class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address" (keydown.enter)="doSearch()" style="padding-bottom: 0px; width: 300px">
+          <input [(ngModel)]='search_text' name="search" class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address"
+            (keydown.enter)="doSearch()" style="padding-bottom: 0px; width: 300px">
         </div>
       </form>
 
@@ -42,9 +43,12 @@
     <!-- Links -->
 
     <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link waves-light" (click)="goWallet()" mdbWavesEffect>Wallet</a>
+      </li>
       <li>
         <div class="status">
-          <strong>Height</strong> {{status.blocks}} · 
+          <strong>Height</strong> {{status.blocks}} ·
           <strong>Mem TXs</strong> {{status.mempool_txs}}
         </div>
       </li>

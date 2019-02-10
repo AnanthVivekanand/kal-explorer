@@ -48,6 +48,7 @@ export class WalletComponent implements OnInit {
     send_address : string;
     send_amount : number;
     environment = environment;
+    log : string[] = [];
 
     constructor(private router: Router, private route: ActivatedRoute, private walletService : WalletService) {
         
@@ -169,7 +170,7 @@ export class WalletComponent implements OnInit {
         console.log(utxos);
         const targets = [{
             'address': this.send_address,
-            'value': this.send_amount / environment.coin.division,
+            'value': this.send_amount * environment.coin.division,
         }];
         let feeRate = 700; // satoshis per byte
         let { inputs, outputs, fee } = coinSelect(utxos, targets, feeRate)
@@ -203,10 +204,10 @@ export class WalletComponent implements OnInit {
 
         console.log(tx.outs);
         tx.outs.forEach((out, i) => {
-            console.log(`Will send ${out.value} to ` + bitcoin.address.fromOutputScript(out.script, TUXCOIN));
+            this.log.push(`Will send ${out.value} to ` + bitcoin.address.fromOutputScript(out.script, TUXCOIN));
         })
-        console.log(`Signed tx: ${hex}`);
-
+        this.log.push(`Fee is ${fee}`);
+        this.log.push(`Signed tx: ${hex}`);
     }
 };
 
