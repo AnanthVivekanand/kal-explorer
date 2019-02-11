@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0cadf1e603d313c0796786c6c3dcb8ab0be65b797a07f0c899f5e6b2b4f6ef19"
+            "sha256": "ae8c2d1fe9eb78ce5f279e99229eafbc53491f841956020a15abfbcadf0c862c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -31,11 +31,11 @@
         },
         "fastapi": {
             "hashes": [
-                "sha256:1229397fc1fbbae5cdb3212e46a7b55936f3526eeddd3e271aab3adec1836fe3",
-                "sha256:5fcc2035fe2d469dce0ed4625bf2012985ef39178b056f58edcf2d113e1343e3"
+                "sha256:932d7e3d13ef1541b0eeb78576c98a68f15552c44a40ae4fb5816b39184d2307",
+                "sha256:b6485bfbf585c6cb944a9a12ae0c29408f046c32ff0341bd46c6e2f1502d214d"
             ],
             "index": "pypi",
-            "version": "==0.1.19"
+            "version": "==0.2.0"
         },
         "get": {
             "hashes": [
@@ -196,6 +196,21 @@
             "index": "pypi",
             "version": "==0.10.1"
         },
+        "python-engineio": {
+            "hashes": [
+                "sha256:4c0861ba2c1a21ebe4a2b678ef059a70b35cbf92330475b7b06e79eab3186ea6",
+                "sha256:b7b5541e83e4e0aaf1b1bf79d090b2a85adb42800adc10599f017bb6c39b8dc3"
+            ],
+            "version": "==3.3.1"
+        },
+        "python-socketio": {
+            "hashes": [
+                "sha256:aa702157694d55a743fb6f1cc0bd1af58fbfda8a7d71d747d4b12d6dac29cab3",
+                "sha256:cd225eb0bb3b348665727cfaafad1e455ee13b8fd9ea9ff2691082b88b9a9444"
+            ],
+            "index": "pypi",
+            "version": "==3.1.2"
+        },
         "query-string": {
             "hashes": [
                 "sha256:bf7b69adeba28e75e12204d5982c9ce0033c160199bd4822da7ad47aa31062ad",
@@ -210,6 +225,13 @@
             ],
             "index": "pypi",
             "version": "==2018.11.20"
+        },
+        "six": {
+            "hashes": [
+                "sha256:3350809f0555b11f552448330d0b52d5f24c91a322ea4a15ef22629740f3761c",
+                "sha256:d16a0141ec1a18405cd4ce8b4613101da75da0e9a7aec5bdd4fa804d0e0eba73"
+            ],
+            "version": "==1.12.0"
         },
         "starlette": {
             "hashes": [

@@ -17,6 +17,7 @@ plyvel = "*"
 fastapi = "*"
 uvicorn = "*"
 python-dotenv = "*"
+python-socketio = "*"
 
 [requires]
 python_version = "3.7"

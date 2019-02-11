@@ -1,26 +1,20 @@
 import re
 import struct
+import uvicorn
+import socketio
 from fastapi import FastAPI
-# from flask import Flask, abort, request
-# from flask_restful import Resource, Api
-# from flask_cors import CORS
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
-
-
-
-# app = Flask(__name__)
-# api = Api(app)
-# CORS(app)
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
+sio = socketio.AsyncServer(async_mode='asgi')
+app_sio = socketio.ASGIApp(sio, app)
+
 from shared.models import Address, Transaction, Block, Utxo
 from peewee import RawQuery, fn
 from datetime import datetime, timedelta
-# from webargs import fields, validate
-# from webargs.flaskparser import use_kwargs, parser
 
 pools = {
     'blazepool': {
@@ -363,3 +357,5 @@ def read_status(q=None):
 # api.add_resource(MempoolResource, '/mempool')
 # api.add_resource(StatusResource, '/status')
 # api.add_resource(BroadcastResource, '/broadcast')
+
+uvicorn.run(app_sio)
