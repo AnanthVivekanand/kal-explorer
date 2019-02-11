@@ -50,6 +50,7 @@ export class AddressComponent implements OnInit {
                 this.sent = data.sent / environment.coin.division;
                 this.received = data.received / environment.coin.division;
             });
+            this.txs = [];
             this.moreTxs();
         });
     }

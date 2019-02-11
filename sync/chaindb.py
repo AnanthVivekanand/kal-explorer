@@ -608,12 +608,13 @@ class ChainDb(object):
         self.log.warn("REORG connecting new top hash %s" % (b2lx(new_best_blkhash),))
         self.log.warn("REORG chain union point %s" % (b2lx(fork),))
         self.log.warn("REORG disconnecting %d blocks, connecting %d blocks" % (len(disconn), len(conn)))
+        conn.reverse()
 
         for block in disconn:
             if not self.disconnect_block(block):
                 return False
 
-        for block in conn.reverse():
+        for block in conn:
             if not self.connect_block(b2lx(block.GetHash()), block, self.getblockmeta(block.GetHash())):
                 return False
 
