@@ -38,7 +38,7 @@ COPY config/nginx.conf /etc/nginx/nginx.conf
 COPY config/nginx.vh.default.conf /etc/nginx/conf.d/default.conf
 
 ENV GUNICORN_CONF       /gunicorn_conf.py
-ENV DEFAULT_MODULE_NAME api.main:app
+ENV DEFAULT_MODULE_NAME api.main:app_sio
 ENV PYTHONPATH          /data
 
 COPY api/* /data/api/

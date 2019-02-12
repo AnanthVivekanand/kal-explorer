@@ -7,6 +7,7 @@ import binascii
 import io
 import json
 import threading
+import socketio
 from datetime import datetime
 from sync.cache import Cache
 from shared.models import Block, Transaction, Address, AddressChanges, Utxo, db
@@ -18,6 +19,15 @@ from bitcoin.wallet import CBitcoinAddress
 from bitcoin.core.script import CScript
 from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
 from datetime import datetime, timedelta
+
+
+# for use on web side
+# mgr = socketio.AsyncRedisManager('redis://')
+# sio = socketio.AsyncServer(client_manager=mgr)
+
+# connect to the redis queue as an external process
+external_sio = socketio.RedisManager('redis://', write_only=True)
+
 
 def int_to_bytes(i: int, *, signed: bool = False) -> bytes:
     length = (i.bit_length() + 7 + int(signed)) // 8
@@ -256,15 +266,18 @@ class ChainDb(object):
         if force or height % 300 == 0:
             self.log.debug('Commit blocks')
             blocks = []
+            hashes = []
             with self.db.write_batch(transaction=True) as deleteBatch:
                 for key, value in self.db.iterator(prefix=b'pg_block:'):
                     data = json.loads(value.decode('utf-8'))
+                    hashes.append(data['hash'])
                     data['version'] = struct.pack('i', data['version'])
                     data['bits'] = struct.pack('i', data['bits'])
                     blocks.append(data)
                     deleteBatch.delete(key)
                 if blocks:
                     Block.insert_many(blocks).execute(None)
+                    external_sio.emit('blocks', hashes, room='inv')
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:

@@ -2,3 +2,5 @@ chainstate
 data
 ui/node_modules
 .env
+*.tar
+*.pyc

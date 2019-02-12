@@ -34,7 +34,7 @@
 
       <form class="form-inline">
         <div class="md-form my-0">
-          <input [(ngModel)]='search_text' name="search" class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address"
+          <input autocomplete="false" [(ngModel)]='search_text' name="search" class="form-control mr-sm-2 search" type="text" placeholder="Search for block, transaction or address"
             (keydown.enter)="doSearch()" style="padding-bottom: 0px; width: 300px">
         </div>
       </form>

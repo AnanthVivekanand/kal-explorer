@@ -18,6 +18,8 @@ fastapi = "*"
 uvicorn = "*"
 python-dotenv = "*"
 python-socketio = "*"
+redis = "*"
+aioredis = "*"
 
 [requires]
 python_version = "3.7"

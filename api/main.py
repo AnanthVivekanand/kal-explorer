@@ -9,12 +9,20 @@ from starlette.responses import HTMLResponse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
-sio = socketio.AsyncServer(async_mode='asgi')
+mgr = socketio.AsyncRedisManager('redis://')
+sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)
+#app.add_middleware(socketio.ASGIApp, socketio_server=sio)
 app_sio = socketio.ASGIApp(sio, app)
+#sio_app = socketio.ASGIApp(sio, app)
+#uvicorn.run(sio_app)
 
 from shared.models import Address, Transaction, Block, Utxo
 from peewee import RawQuery, fn
 from datetime import datetime, timedelta
+
+@sio.on('subscribe')
+async def subscribe(sid, room):
+    sio.enter_room(sid, room)
 
 pools = {
     'blazepool': {
@@ -358,4 +366,4 @@ def read_status(q=None):
 # api.add_resource(StatusResource, '/status')
 # api.add_resource(BroadcastResource, '/broadcast')
 
-uvicorn.run(app_sio)
+#uvicorn.run(app_sio)

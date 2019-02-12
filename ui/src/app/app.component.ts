@@ -3,7 +3,9 @@ import { StatusService } from './status.service';
 import { BlocksService } from './blocks.service';
 import { AddressService } from './address.service';
 import { TransactionService } from './transactions.service';
-import {Router} from '@angular/router';
+import { Router } from '@angular/router';
+import { environment } from '../environments/environment';
+import io from 'socket.io-client';
 
 @Component({
   selector: 'app-root',
@@ -20,6 +22,14 @@ export class AppComponent implements OnInit {
   ngOnInit() {
     this.statusService.currentStatus.subscribe((data: [any]) => this.status = data)
     this.statusService.updateStatus();
+    const socket = io.connect(environment.sio);
+    socket.on('blocks', function(blocks) {
+      console.log(blocks);
+    });
+    socket.on('connect', () => {
+      console.log('Connected');
+      socket.emit('subscribe', 'inv');
+    })
   }
 
   goHome() {

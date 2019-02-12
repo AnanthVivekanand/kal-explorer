@@ -8,7 +8,8 @@ export const environment = {
   coin: {
     ticker: 'TUX',
     division: 100000000
-  }
+  },
+  sio: 'http://localhost:8000'
 };
 
 /*
