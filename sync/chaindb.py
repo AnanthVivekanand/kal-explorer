@@ -356,7 +356,7 @@ class ChainDb(object):
         else:
             preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
 #        tx_data["vin"].append({"address": preaddress, "value": prevalue})
-        tx_data["vin"].append({"txid": txid, "vout": idx, "value": prevalue})
+        tx_data["vin"].append({"txid": b2lx(vin.prevout.hash), "vout": vin.prevout.n, "value": prevalue})
         tx_data["input_value"] += prevalue
 
         # Add to the value of address vin
