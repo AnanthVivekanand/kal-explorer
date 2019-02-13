@@ -3,24 +3,14 @@ import json
 import struct
 import uvicorn
 import socketio
-import asyncio
-import aioredis
+from redis import Redis
 from shared import settings
 from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
 
-loop = asyncio.get_event_loop()
-
-redis = None
-
-async def create():
-    global redis
-    redis = await aioredis.create_redis(
-        'redis://%s' % settings.REDIS_HOST, loop=loop)
-
-loop.run_until_complete(create())
+redis = Redis(settings.REDIS_HOST)
 
 class Broadcast(BaseModel):
     data : str
@@ -388,8 +378,8 @@ def read_status(q=None):
         }
 
 @app.post('/broadcast')
-async def broadcast(data : Broadcast):
-    await redis.publish('broadcast', data.data)
+def broadcast(data : Broadcast):
+    redis.publish('broadcast', data.data)
     return data
 
 # class BroadcastResource(Resource):

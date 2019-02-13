@@ -116,6 +116,10 @@ class NodeConn(Greenlet):
                 msg.tx = tx
                 self.send_message(msg)
                 print('Sent tx %s' % b2lx(msg.tx.GetTxid()))
+                if self.chaindb.tx_is_orphan(msg.tx):
+                    self.log.info("MemPool: Ignoring orphan TX %s" % (b2lx(msg.tx.GetHash()),))
+                else:
+                    self.chaindb.mempool_add(msg.tx)
             except Exception as e:
                 print(e)
                 traceback.print_exc()
