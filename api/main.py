@@ -105,7 +105,14 @@ async def read_address(address : str):
         record = Address.get(address=address)
     except:
         return HTMLResponse(status_code=404)
-    return record.to_dict()
+    res = record.to_dict()
+    unconfirmed = 0
+    utxos = Utxo.select().where((Utxo.scriptPubKey == address) & (Utxo.spent == True)).execute()
+    for utxo in utxos:
+        unconfirmed += utxo.amount
+    res['balance'] -= unconfirmed
+    res['unconfirmed'] = unconfirmed
+    return res
 
 @app.get('/addr/{address}/utxo')
 async def read_addr_utxos(address : str):
