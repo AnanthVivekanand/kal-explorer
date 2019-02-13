@@ -18,4 +18,8 @@ export class WalletService {
   getUtxos(address : String) : any {
     return this.http.get(`${this.blocksUrl}/${address}/utxo`).toPromise();
   }
+
+  broadcast(hex : String) {
+    return this.http.post(`${environment.url_base}/broadcast`, {'data': hex}).toPromise();
+  }
 }

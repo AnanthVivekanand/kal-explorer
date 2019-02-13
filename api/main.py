@@ -3,10 +3,27 @@ import json
 import struct
 import uvicorn
 import socketio
+import asyncio
+import aioredis
 from shared import settings
 from fastapi import FastAPI
+from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
+
+loop = asyncio.get_event_loop()
+
+redis = None
+
+async def create():
+    global redis
+    redis = await aioredis.create_redis(
+        'redis://%s' % settings.REDIS_HOST, loop=loop)
+
+loop.run_until_complete(create())
+
+class Broadcast(BaseModel):
+    data : str
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
@@ -42,6 +59,10 @@ pools = {
     'ahashpool': {
         'name': 'A Hash Pool',
         'url': 'https://www.ahashpool.com/'
+    },
+    'tuxtoke.life': {
+        'name': 'Tuxtoke',
+        'url': 'http://pool.tuxtoke.life'
     }
 }
 
@@ -58,7 +79,7 @@ def get_confirmations(height, block=None):
     return b.height - height
 
 def tx_to_json(tx):
-    is_coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
+    is_coinbase = (len(tx.vin) == 0)
     return {
         'blockhash': tx.block,
         'blockheight': tx.block_height,
@@ -107,7 +128,7 @@ async def read_address(address : str):
         return HTMLResponse(status_code=404)
     res = record.to_dict()
     unconfirmed = 0
-    utxos = Utxo.select().where((Utxo.scriptPubKey == address) & (Utxo.spent == True)).execute()
+    utxos = Utxo.select().where((Utxo.address == address) & (Utxo.spent == True)).execute()
     for utxo in utxos:
         unconfirmed += utxo.amount
     res['balance'] -= unconfirmed
@@ -365,6 +386,11 @@ def read_status(q=None):
             'difficulty': latest_block.difficulty,
             'mempool_txs': mempool_txs,
         }
+
+@app.post('/broadcast')
+async def broadcast(data : Broadcast):
+    await redis.publish('broadcast', data.data)
+    return data
 
 # class BroadcastResource(Resource):
 #     def put(self):

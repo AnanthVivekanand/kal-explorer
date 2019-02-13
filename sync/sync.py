@@ -9,12 +9,20 @@ import gevent.pywsgi
 import socket
 import random
 import logging
-from gevent import Greenlet
 import bitcoin
 import bitcointx
+from bitcointx.core import CTransaction, CheckTransaction
+import traceback
+
+import gevent.monkey
+gevent.monkey.patch_all()
+
+from redis import Redis
+from shared import settings
+from gevent import Greenlet
 from bitcoin.messages import (msg_version, msg_ping, msg_verack, msg_getaddr,
 messagemap, msg_getdata, msg_getblocks, msg_headers, msg_getheaders, msg_addr, 
-msg_pong)
+msg_pong, msg_tx)
 from bitcoin.net import CInv
 from bitcoin.core import lx, b2lx
 from sync.chaindb import ChainDb
@@ -29,8 +37,7 @@ NOBLKS_VERSION_END = 70018
 MY_SUBVERSION = b"/pynode:0.0.1/"
 BIP0031_VERSION = 60000
 
-
-settings = {}
+redis = Redis('%s' % settings.REDIS_HOST)
 debugnet = False
 
 def verbose_sendmsg(message):
@@ -91,6 +98,27 @@ class NodeConn(Greenlet):
         vt.nStartingHeight = 0
         vt.strSubVer = MY_SUBVERSION
         self.send_message(vt)
+
+        gevent.spawn(self.broadcast_listen)
+        # asyncio.get_event_loop().run_until_complete(self.broadcast_listen())
+
+    def broadcast_listen(self):
+        pubsub = redis.pubsub()
+        pubsub.subscribe('broadcast')
+        for msg in pubsub.listen():
+            tx = msg['data']
+            try:
+                tx = tx.decode()
+                btx = bytes.fromhex(tx)
+                tx = CTransaction.deserialize(btx)
+                # CheckTransaction(tx) # TODO: Fix money supply?
+                msg = msg_tx()
+                msg.tx = tx
+                self.send_message(msg)
+                print('Sent tx %s' % b2lx(msg.tx.GetTxid()))
+            except Exception as e:
+                print(e)
+                traceback.print_exc()
 
     def _run(self):
         self.log.info(self.dstaddr + " connected")

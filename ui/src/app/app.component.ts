@@ -26,6 +26,9 @@ export class AppComponent implements OnInit {
     socket.on('blocks', function(blocks) {
       console.log(blocks);
     });
+    socket.on('tx', function(tx) {
+      console.log(tx);
+    })
     socket.on('connect', () => {
       console.log('Connected');
       socket.emit('subscribe', 'inv');

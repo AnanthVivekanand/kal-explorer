@@ -20,6 +20,7 @@ python-dotenv = "*"
 python-socketio = "*"
 redis = "*"
 aioredis = "*"
+redispy = "*"
 
 [requires]
 python_version = "3.7"

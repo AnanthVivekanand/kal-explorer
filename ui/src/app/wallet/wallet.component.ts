@@ -208,6 +208,7 @@ export class WalletComponent implements OnInit {
         })
         this.log.push(`Fee is ${fee}`);
         this.log.push(`Signed tx: ${hex}`);
+        this.walletService.broadcast(hex);
     }
 };
 

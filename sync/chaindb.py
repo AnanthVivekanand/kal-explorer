@@ -284,9 +284,10 @@ class ChainDb(object):
                     blocks.append(data)
                     deleteBatch.delete(key)
                 if blocks:
-                    Block.insert_many(blocks).execute(None)
                     if not self.initial_sync:
-                        external_sio.emit('blocks', hashes, room='inv')
+                        for block in blocks:
+                            external_sio.emit('blocks', block, room='inv')
+                    Block.insert_many(blocks).execute(None)
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:
@@ -339,6 +340,7 @@ class ChainDb(object):
         txid = b2lx(tx.GetHash())
         for idx, vin in enumerate(tx.vin):
             Utxo.update(spent=True).where((Utxo.txid == b2lx(vin.prevout.hash)) & (Utxo.vout == vin.prevout.n)).execute()
+        external_sio.emit('tx', tx_parsed, room='inv')
 
     def mempool_remove(self, txid):
         self.mempool.remove(txid)

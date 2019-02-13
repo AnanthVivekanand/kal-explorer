@@ -1,5 +1,7 @@
 FROM python:3.7-alpine3.8
 
+# LABEL maintainer="Ryan Shaw <ryan@rshaw.me>"
+
 RUN apk add --no-cache curl \
  && curl -L -s https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.5/s6-overlay-amd64.tar.gz \
   | tar xvzf - -C / \
