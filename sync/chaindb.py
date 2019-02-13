@@ -338,7 +338,7 @@ class ChainDb(object):
         Transaction.insert_many([tx_parsed]).execute(None)
         txid = b2lx(tx.GetHash())
         for idx, vin in enumerate(tx.vin):
-            Utxo.update(spent=True).where((Utxo.txid == txid) & (Utxo.vout == idx)).execute()
+            Utxo.update(spent=True).where((Utxo.txid == b2lx(vin.prevout.hash)) & (Utxo.vout == vin.prevout.n)).execute()
 
     def mempool_remove(self, txid):
         self.mempool.remove(txid)
