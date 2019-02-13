@@ -39,13 +39,18 @@ class Transaction(BaseModel):
 
 class Utxo(BaseModel):
     address = CharField(index=True)
-    txid_vout = CharField(index=True, unique=True)
-    # vout = IntegerField()
+    txid = CharField(index=True)
+    vout = IntegerField()
+    spent = BooleanField(default=False, index=True)
     scriptPubKey = CharField()
     amount = BigIntegerField()
     block_height = IntegerField(null=True)
     # timestamp = DateTimeField()
 
+    class Meta:
+        indexes = (
+            (('txid', 'vout'), True),
+        )
 
 class Message(BaseModel):
     message = TextField()

@@ -8,6 +8,7 @@ import io
 import json
 import threading
 import socketio
+from shared import settings
 from datetime import datetime
 from sync.cache import Cache
 from shared.models import Block, Transaction, Address, AddressChanges, Utxo, db
@@ -26,7 +27,7 @@ from datetime import datetime, timedelta
 # sio = socketio.AsyncServer(client_manager=mgr)
 
 # connect to the redis queue as an external process
-external_sio = socketio.RedisManager('redis://', write_only=True)
+external_sio = socketio.RedisManager('redis://%s' % settings.REDIS_HOST, write_only=True)
 
 
 def int_to_bytes(i: int, *, signed: bool = False) -> bytes:
@@ -128,11 +129,11 @@ class ChainDb(object):
         self.transaction_change_count = 0
         self.utxo_cache = {}
         self.tx_lock = False
+        self.initial_sync = True
         self.checktransactions(True)
         self.checkaddresses(True)
         self.checkblocks(0, True)
         self.checkutxos(True)
-        self.initial_sync = True
         self.orphans = {}
         self.orphan_deps = {}
 
@@ -226,8 +227,15 @@ class ChainDb(object):
                                 loop = True
                                 break
                         if len(transactions) > 0:
+                            if not self.initial_sync:
+                                for tx in transactions:
+                                    for addr, value in tx['addresses_out'].items():
+                                        external_sio.emit(addr, tx, room=addr)
+                                    for addr, value in tx['addresses_in'].items():
+                                        external_sio.emit(addr, tx, room=addr)
                             Transaction.insert_many(transactions).execute(None)
                             self.transaction_change_count -= count
+
         finally:
             self.tx_lock = False
             self.log.debug('Transaction update complete')
@@ -277,7 +285,8 @@ class ChainDb(object):
                     deleteBatch.delete(key)
                 if blocks:
                     Block.insert_many(blocks).execute(None)
-                    external_sio.emit('blocks', hashes, room='inv')
+                    if not self.initial_sync:
+                        external_sio.emit('blocks', hashes, room='inv')
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:
@@ -294,7 +303,8 @@ class ChainDb(object):
                     except:
                         raise
                     utxos.append({
-                        'txid_vout': '%s:%s' % (txid, vout),
+                        'txid': txid,
+                        'vout': vout,
                         'address': address,
                         'scriptPubKey': scriptPubKey,
                         'block_height': blockHeight,
@@ -309,18 +319,26 @@ class ChainDb(object):
                     key_parts = key.decode().split(':')
                     txid = key_parts[1]
                     vout = key_parts[2]
-                    utxos.append('%s:%s' % (txid, vout))
+                    utxos.append('(\'%s\', %s)' % (txid, vout))
                 if utxos:
                     # print('Deleting utxos')
                     # print(utxos)
-                    Utxo.delete().where(Utxo.txid_vout.in_(utxos)).execute()
+                    # select * from utxo join (VALUES('TE8evzF3gZoRQozJgfNzekrv7uiBgKKFiE', '001239f17dde519a4fbadb71dda3725ef7474ab2995b6466e8c079dc5c2a7865:0')) AS t(addr, t) ON addr = address and txid_vout = t;
+                    q = 'DELETE FROM utxo WHERE id in (SELECT id FROM utxo JOIN (VALUES %s) AS t (t, v) ON t = txid AND v = vout)' % ','.join(utxos)
+                    #Utxo.delete().where(Utxo.txid_vout.in_(utxos)).execute()
+                    res = Utxo.raw(q).execute()
             self.utxo_changes = 0
 
     def mempool_add(self, tx):
+        # TODO: Transaction can get stuck in mempool if double-spent or RBF
+        # TODO: Add expiry from mempool? e.g. x blocks, either indicates not accepted by the network or stuck in mempool due to another issue
         self.mempool.add(tx)
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        tx = self.parse_tx(timestamp, None, None, tx)
-        Transaction.insert_many([tx]).execute(None)
+        tx_parsed = self.parse_tx(timestamp, None, None, tx)
+        Transaction.insert_many([tx_parsed]).execute(None)
+        txid = b2lx(tx.GetHash())
+        for idx, vin in enumerate(tx.vin):
+            Utxo.update(spent=True).where((Utxo.txid == txid) & (Utxo.vout == idx)).execute()
 
     def mempool_remove(self, txid):
         self.mempool.remove(txid)
@@ -328,7 +346,7 @@ class ChainDb(object):
 
     def parse_vin(self, tx, txid, tx_data, vin, idx, batch=None):
         if tx.is_coinbase() and idx == 0:
-            tx_data["vin"].append({"address": None, "value": 0})
+            tx_data["vin"] = []
             tx_data["addresses_in"][None] = 0
             return
         if batch:
@@ -337,7 +355,8 @@ class ChainDb(object):
             self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, batch)
         else:
             preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
-        tx_data["vin"].append({"address": preaddress, "value": prevalue})
+#        tx_data["vin"].append({"address": preaddress, "value": prevalue})
+        tx_data["vin"].append({"txid": txid, "vout": idx, "value": prevalue})
         tx_data["input_value"] += prevalue
 
         # Add to the value of address vin
@@ -377,7 +396,7 @@ class ChainDb(object):
             return
         value = vout.nValue
         self.pututxo(txid, idx, address, value, wb=batch, scriptPubKey=vout.scriptPubKey.hex(), blockHeight=blockHeight)
-        tx_data["vout"].append({"address": address, "value": value})
+        tx_data["vout"].append({"address": address, "value": value, "vout": idx})
         if address in tx_data["addresses_out"]:
             tx_data["addresses_out"][address] += value
         else:

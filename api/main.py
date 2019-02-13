@@ -1,7 +1,9 @@
 import re
+import json
 import struct
 import uvicorn
 import socketio
+from shared import settings
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
@@ -9,7 +11,7 @@ from starlette.responses import HTMLResponse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'])
 
-mgr = socketio.AsyncRedisManager('redis://')
+mgr = socketio.AsyncRedisManager('redis://%s' % settings.REDIS_HOST)
 sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)
 #app.add_middleware(socketio.ASGIApp, socketio_server=sio)
 app_sio = socketio.ASGIApp(sio, app)
@@ -85,10 +87,9 @@ def read_richlist(order=None):
 
 def _utxo_map(block):
     def _func(utxo):
-        txid, vout = utxo.txid_vout.split(':')
         return {
-            'txid': txid,
-            'vout': int(vout),
+            'txid': utxo.txid,
+            'vout': int(utxo.vout),
             'amount': utxo.amount,
             'scriptPubKey': utxo.scriptPubKey,
             'address': utxo.address,
@@ -108,7 +109,15 @@ async def read_address(address : str):
 
 @app.get('/addr/{address}/utxo')
 async def read_addr_utxos(address : str):
-    utxos = Utxo.select().where(Utxo.address == address)
+    utxos = Utxo.select().where((Utxo.address == address) & (Utxo.spent == False))
+    #utxos = []
+    # check utxo spent?
+    #for utxo in _utxos:
+    #    q = json.dumps([{'txid': utxo.txid, 'vout': utxo.vout}])
+    #    res = Transaction.raw("SELECT * FROM transaction WHERE vin @> %s", q).execute()
+    #    if not len(res):
+    #        utxos.append(utxo)
+    # select * from transaction where vin @> '[{"txid": "016520b9684c95d82111d04257766684ae4a4df45bd7f9b9bdf5648364590053"}]' and block is null
     block = get_latest_block()
     return list(map(_utxo_map(block), utxos))
 
