@@ -26,7 +26,7 @@ class Broadcast(BaseModel):
     data : str
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=['*'])
+app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['GET', 'POST'])
 
 mgr = socketio.AsyncRedisManager('redis://%s' % settings.REDIS_HOST)
 sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)
