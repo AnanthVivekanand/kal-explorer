@@ -47,6 +47,7 @@ export class WalletComponent implements OnInit {
     balance : number = 0;
     send_address : string;
     send_amount : number;
+    send_message : string;
     environment = environment;
     log : string[] = [];
 
@@ -164,6 +165,65 @@ export class WalletComponent implements OnInit {
             } 
         }
         return utxos;
+    }
+
+    async sendMessage() {
+        const utxos = await this._getUtxos();
+        console.log(utxos);
+        const targets = [{
+            'address': this.addresses[0].address,
+            'value': 0.01 * environment.coin.division,
+        }];
+        let feeRate = 700; // satoshis per byte
+        let { inputs, outputs, fee } = coinSelect(utxos, targets, feeRate)
+
+        if (!inputs || !outputs) {
+            console.log(inputs, outputs);
+            return;
+        }
+
+        let txb = new bitcoin.TransactionBuilder(TUXCOIN);
+
+        inputs.forEach(input => {
+            console.log('Adding input', input);
+            txb.addInput(input.txid, input.vout, null, Buffer.from(input.scriptPubKey, 'hex'))
+        });
+        outputs.forEach(output => {
+            if (!output.address) {
+                output.address = this.getChangeAddress().address;
+                txb.addOutput(output.address, output.value)
+                console.log('Adding change output', output);
+                return;
+            }
+            console.log('Adding output', output);
+            // txb.addOutput(output.address, output.value)
+            const data = Buffer.concat([Buffer.from('feab', 'hex'), Buffer.from(this.send_message, 'utf8')]);
+            const embed = bitcoin.payments.embed({ data: [data] })
+            // txb.addInput(unspent.txId, unspent.vout)
+            txb.addOutput(embed.output, output.value)
+        });
+        inputs.forEach((input, i) => {
+            console.log('Signing utxo', i, input);
+            txb.sign(i, this.wallet.derivePath(input.path), null, null, input.value)
+        });
+        // txb.sign(0, this.wallet.derivePath('m/0/0'), null, null, inputs[0].value)
+        const built = txb.build();
+        const hex = built.toHex();
+
+        const tx = bitcoin.Transaction.fromHex(hex);
+
+        console.log(tx.outs);
+        tx.outs.forEach((out, i) => {
+            try{
+                this.log.push(`Will send ${out.value} to ` + bitcoin.address.fromOutputScript(out.script, TUXCOIN));
+            }catch(e){
+                this.log.push(`Msg tx`);
+            }
+        })
+        this.log.push(`Fee is ${fee}`);
+        this.log.push(`Signed tx: ${hex}`);
+        this.walletService.broadcast(hex);
+        // this.log.push(`Transaction has been broadcast ${built.getId()}`);
     }
 
     async send() {

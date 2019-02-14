@@ -80,4 +80,5 @@ This project uses (pipenv)[https://github.com/pypa/pipenv] for its dependencies,
 
 ## Donate
 
+TUX: tux1qcc00c3m5xadczfnklgpsgksxwpnu0dk8q5mhha
 BTC: 3MAMXxzzdLy9NQqBvQebnrZjZjQJRC4HTD
