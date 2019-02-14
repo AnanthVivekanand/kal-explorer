@@ -1,6 +1,8 @@
+import struct
 from shared import settings
 from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, FloatField, BigIntegerField, BlobField, TextField, BooleanField
 from playhouse.postgres_ext import BinaryJSONField
+from shared.settings import POOLS
 
 db = PostgresqlDatabase('tuxcoin', user='postgres', password='postgres', host=settings.DB_HOST, port=5432)
 
@@ -22,6 +24,27 @@ class Block(BaseModel):
     coinbase = BlobField()
     tx_count = IntegerField()
     orphaned = BooleanField(default=False, index=True)
+
+    def to_json(self):
+        pool = None
+        cb = bytes(self.coinbase)
+        for key, value in POOLS.items():
+            if cb.find(key.encode()) != -1:
+                pool = value
+        return {
+            'height': self.height,
+            'hash': self.hash,
+            'timestamp': int(self.timestamp.timestamp()),
+            'merkle_root': self.merkle_root,
+            'tx': self.tx,
+            'difficulty': self.difficulty,
+            'size': self.size,
+            'version_hex': bytes(self.version).hex(),
+            'version': struct.unpack('i', bytes(self.version))[0],
+            'bits': bytes(self.bits).hex(),
+            'nonce': self.nonce,
+            'pool': pool
+        }
 
 
 class Transaction(BaseModel):

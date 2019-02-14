@@ -7,7 +7,7 @@ class MemPool(object):
         self.log = log
 
     def add(self, tx):
-        hashstr = b2lx(tx.GetHash())
+        hashstr = b2lx(tx.GetTxid())
 
         if hashstr in self.pool:
             self.log.info("MemPool.add(%s): already known" % (hashstr,))

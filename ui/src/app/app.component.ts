@@ -22,17 +22,6 @@ export class AppComponent implements OnInit {
   ngOnInit() {
     this.statusService.currentStatus.subscribe((data: [any]) => this.status = data)
     this.statusService.updateStatus();
-    const socket = io.connect(environment.sio);
-    socket.on('blocks', function(blocks) {
-      console.log(blocks);
-    });
-    socket.on('tx', function(tx) {
-      console.log(tx);
-    })
-    socket.on('connect', () => {
-      console.log('Connected');
-      socket.emit('subscribe', 'inv');
-    })
   }
 
   goHome() {

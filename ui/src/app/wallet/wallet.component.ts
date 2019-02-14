@@ -137,11 +137,12 @@ export class WalletComponent implements OnInit {
     }
 
     async updateBalance() {
-        this.balance = 0;
+        let _balance = 0;
         for(let address of this.addresses) {
             const res = await this.walletService.getBalance(address.address);
-            this.balance += res.balance;
+            _balance += res.balance;
         }
+        this.balance = _balance;
     }
 
     getChangeAddress(path : string = 'm/1/0') : any {
@@ -198,7 +199,8 @@ export class WalletComponent implements OnInit {
             txb.sign(i, this.wallet.derivePath(input.path), null, null, input.value)
         });
         // txb.sign(0, this.wallet.derivePath('m/0/0'), null, null, inputs[0].value)
-        const hex = txb.build().toHex();
+        const built = txb.build();
+        const hex = built.toHex();
 
         const tx = bitcoin.Transaction.fromHex(hex);
 
@@ -209,6 +211,7 @@ export class WalletComponent implements OnInit {
         this.log.push(`Fee is ${fee}`);
         this.log.push(`Signed tx: ${hex}`);
         this.walletService.broadcast(hex);
+        this.log.push(`Transaction has been broadcast ${built.getId()}`);
     }
 };
 

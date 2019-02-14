@@ -26,35 +26,13 @@ app_sio = socketio.ASGIApp(sio, app)
 #uvicorn.run(sio_app)
 
 from shared.models import Address, Transaction, Block, Utxo
+from shared.settings import POOLS
 from peewee import RawQuery, fn
 from datetime import datetime, timedelta
 
 @sio.on('subscribe')
 async def subscribe(sid, room):
     sio.enter_room(sid, room)
-
-pools = {
-    'blazepool': {
-        'name': 'BlazePool',
-        'url': 'http://blazepool.com'
-    },
-    'zpool.ca': {
-        'name': 'Zpool',
-        'url': 'https://zpool.ca'
-    },
-    'zerg': {
-        'name': 'Zerg Pool',
-        'url': 'http://zergpool.com/'
-    },
-    'ahashpool': {
-        'name': 'A Hash Pool',
-        'url': 'https://www.ahashpool.com/'
-    },
-    'tuxtoke.life': {
-        'name': 'Tuxtoke',
-        'url': 'http://pool.tuxtoke.life'
-    }
-}
 
 def get_latest_block():
     return Block.select().order_by(Block.height.desc()).limit(1)[0]
@@ -204,7 +182,7 @@ def read_block_txs(block : str):
     txs = Transaction.select().where(Transaction.txid.in_(b.tx))
     block = get_latest_block()
     for tx in txs:
-        is_coinbase = (len(tx.vin) == 1 and tx.vin[0]['address'] == None)
+        is_coinbase = (len(tx.vin) == 0)
         res['txs'].append({
             'blockhash': b.hash,
             'blockheight': b.height,
@@ -248,11 +226,10 @@ def read_blockhash(blockhash):
     txs.sort(key=func, reverse=True)
 
     pool = None
-    cb = bytes(b.coinbase).decode('utf-8')
-    for key, value in pools.items():
-        if cb.find(key) != -1:
+    cb = bytes(b.coinbase)
+    for key, value in POOLS.items():
+        if cb.find(key.encode()) != -1:
             pool = value
-    
     res = {
         'height': b.height,
         'hash': b.hash,
@@ -273,17 +250,19 @@ def read_blockhash(blockhash):
     return res
 
 @app.get('/blocks')
-def read_blocks(beforeBlock=None):
+def read_blocks(beforeBlock=None,  limit : int = 100):
     q = Block.select()
     if beforeBlock:
         q = q.where(Block.height < beforeBlock)
-    blocks = q.order_by(Block.timestamp.desc()).limit(100)
+    if limit > 100:
+        limit = 100
+    blocks = q.order_by(Block.timestamp.desc()).limit(limit)
     res = []
     for b in blocks:
         pool = None
-        cb = bytes(b.coinbase).decode('utf-8')
-        for key, value in pools.items():
-            if cb.find(key) != -1:
+        cb = bytes(b.coinbase)
+        for key, value in POOLS.items():
+            if cb.find(key.encode()) != -1:
                 pool = value
         res.append({
             'height': b.height,

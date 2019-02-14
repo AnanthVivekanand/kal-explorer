@@ -12,12 +12,18 @@ import { Title }  from '@angular/platform-browser';
 })
 export class HomeComponent {
   title = 'ui';
-  blocks : any [];
+  blocks : any [] = [];
 
   constructor(private router : Router, blocksService : BlocksService, private titleService : Title) {
-    blocksService.getBlocks()
+    blocksService.getBlocks(10)
     .subscribe((data: [any]) => this.blocks = data)
     this.titleService.setTitle('Home | Explorer')
+    // this.statusService.currentStatus.subscribe((data: [any]) => this.status = data)
+
+    blocksService.blocksObservable.subscribe((data: any) => {
+      console.log(data);
+      this.blocks.unshift(data);
+    });
   }
 
   goBlock(blockhash : String) {

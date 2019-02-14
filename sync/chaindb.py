@@ -1,4 +1,5 @@
 import gevent
+import base64
 import string
 import struct
 import os, sys
@@ -219,7 +220,7 @@ class ChainDb(object):
                                 "block_height": data["block_height"],
                                 "addresses_out": data["addresses_out"],
                                 "addresses_in": data["addresses_in"],
-                                "timestamp": data["timestamp"],
+                                "timestamp": datetime.fromtimestamp(data["timestamp"]),
                             })
                             deleteBatch.delete(key)
                             if count > 20000:
@@ -281,13 +282,18 @@ class ChainDb(object):
                     hashes.append(data['hash'])
                     data['version'] = struct.pack('i', data['version'])
                     data['bits'] = struct.pack('i', data['bits'])
+                    data['coinbase'] = base64.decodebytes(data['coinbase'].encode())
+                    data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
                     blocks.append(data)
                     deleteBatch.delete(key)
                 if blocks:
                     if not self.initial_sync:
                         for block in blocks:
-                            external_sio.emit('blocks', block, room='inv')
-                    Block.insert_many(blocks).execute(None)
+                            b = Block.create(**block)
+#                            print(b.to_json())
+                            external_sio.emit('block', b.to_json(), room='inv')
+                    else:
+                        Block.insert_many(blocks).execute(None)
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:
@@ -331,13 +337,16 @@ class ChainDb(object):
             self.utxo_changes = 0
 
     def mempool_add(self, tx):
+        # Do not add if not fully synced
+        if self.initial_sync:
+            return
         # TODO: Transaction can get stuck in mempool if double-spent or RBF
         # TODO: Add expiry from mempool? e.g. x blocks, either indicates not accepted by the network or stuck in mempool due to another issue
         self.mempool.add(tx)
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         tx_parsed = self.parse_tx(timestamp, None, None, tx)
         Transaction.insert_many([tx_parsed]).execute(None)
-        txid = b2lx(tx.GetHash())
+        txid = b2lx(tx.GetTxid())
         for idx, vin in enumerate(tx.vin):
             Utxo.update(spent=True).where((Utxo.txid == b2lx(vin.prevout.hash)) & (Utxo.vout == vin.prevout.n)).execute()
         external_sio.emit('tx', tx_parsed, room='inv')
@@ -419,7 +428,7 @@ class ChainDb(object):
                 }
 
     def parse_tx(self, timestamp, bHash, bHeight, tx, batch=None):
-        txid = b2lx(tx.GetHash())
+        txid = b2lx(tx.GetTxid())
         tx_data = {
             "txid": txid,
             "vout": [], 
@@ -444,7 +453,7 @@ class ChainDb(object):
     def parse_vtx(self, vtx, wb, timestamp, bHash, bHeight):
         neverseen = 0
         for tx in vtx:
-            txid = b2lx(tx.GetHash())
+            txid = b2lx(tx.GetTxid())
 
             if not self.mempool_remove(txid):
                 neverseen += 1
@@ -470,7 +479,7 @@ class ChainDb(object):
         for tx in block.vtx:
             if tx.is_coinbase:
                 continue
-            txmap[tx.GetHash()] = tx
+            txmap[tx.GetTxid()] = tx
             for txin in tx.vin:
                 v = (txin.prevout.hash, txin.prevout.n)
                 if v in outputs:
@@ -689,7 +698,7 @@ class ChainDb(object):
 
             # update tx index and memory pool
             for tx in block.vtx:
-                ser_hash = b2lx(tx.GetHash())
+                ser_hash = b2lx(tx.GetTxid())
                 batch.delete(('tx:'+ser_hash).encode())
 
                 if not tx.is_coinbase():
@@ -721,7 +730,7 @@ class ChainDb(object):
             for tx in block.vtx:
                 if tx.is_coinbase():
                     continue
-                ser_hash = b2lx(tx.GetHash())
+                ser_hash = b2lx(tx.GetTxid())
                 key = ('pg_tx:%s' % ser_hash)
                 batch.delete(key)
 
@@ -729,7 +738,7 @@ class ChainDb(object):
             Transaction.delete().where(Transaction.block == b2lx(block.GetHash())).execute()
 
             for tx in block.vtx:
-                txid = b2lx(tx.GetHash())
+                txid = b2lx(tx.GetTxid())
                 for idx, vin in enumerate(tx.vin):
                     if tx.is_coinbase() and idx == 0:
                         continue
@@ -796,7 +805,7 @@ class ChainDb(object):
                 self.db_sync()
 
             height = blkmeta.height
-            timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = dt.timestamp()
             wb.put(('pg_block:%s' % bHash).encode(), json.dumps({
                 'merkle_root': b2lx(block.hashMerkleRoot), # save merkle root as hex string
                 'difficulty': block.calc_difficulty(block.nBits), # save difficulty as both calculated and nBits
@@ -807,9 +816,9 @@ class ChainDb(object):
                 'nonce': block.nNonce,
                 'size': len(block.serialize()),
                 'hash': bHash,
-                'coinbase': str(block.vtx[0].vin[0].scriptSig),
+                'coinbase': base64.encodebytes(block.vtx[0].vin[0].scriptSig).decode(),
                 'tx_count': len(block.vtx),
-                'tx': list(map(lambda tx : b2lx(tx.GetHash()), block.vtx))
+                'tx': list(map(lambda tx : b2lx(tx.GetTxid()), block.vtx))
             }).encode())
 
             self.parse_vtx(block.vtx, wb, timestamp, block.GetHash(), height)
