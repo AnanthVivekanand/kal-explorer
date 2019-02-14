@@ -1,59 +1,72 @@
 <div class="row">
-  <div class="col-4 col-gray" *ngIf="!wallet">
-    <div class="md-form" *ngIf="!wallet_create && !wallet_import">
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="createWallet()">Create wallet</button>
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="importWallet()">Import wallet</button>
-    </div>
-
-    <div class="md-form" *ngIf="wallet_create">
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="createWallet()">Create wallet</button>
-      <textarea type="text" id="form8" class="md-textarea form-control" mdbInput [mdbValidate]="false" [(ngModel)]="mnemonic"></textarea>
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="savedBackupWords()">I have saved
-        backup words</button>
-    </div>
-
-    <div class="md-form" *ngIf="wallet_import">
-      <textarea type="text" id="form8" class="md-textarea form-control" mdbInput [(ngModel)]="mnemonic"></textarea>
-      <label for="form7">Enter backup phrase</label>
-      <mdb-error *ngIf="mnemonic_valid === false">Input invalid</mdb-error>
-      <mdb-success *ngIf="mnemonic_valid === true">Input valid</mdb-success>
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="doImport()">Import</button>
-    </div>
-  </div>
-
-  <div class="col-4 col-gray" *ngIf="wallet != null">
-    <div class="md-form" *ngIf="addresses">
-      <h2>Addresses</h2>
-      <div *ngFor="let address of addresses">
-        {{address.address}}
+  <div class="col-4" *ngIf="!wallet">
+    <div class="col-gray">
+      <div class="md-form" *ngIf="!wallet_create && !wallet_import">
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="createWallet()">Create wallet</button>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="importWallet()">Import wallet</button>
       </div>
-      <div>
-        Balance: {{balance / environment.coin.division}}
+
+      <div class="md-form" *ngIf="wallet_create">
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="createWallet()">Create wallet</button>
+        <textarea type="text" id="form8" class="md-textarea form-control" mdbInput [mdbValidate]="false" [(ngModel)]="mnemonic"></textarea>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="savedBackupWords()">I have saved
+          backup words</button>
       </div>
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="updateBalance()">Update</button>
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="logout()">Logout</button>
+
+      <div class="md-form" *ngIf="wallet_import">
+        <textarea type="text" id="form8" class="md-textarea form-control" mdbInput [(ngModel)]="mnemonic"></textarea>
+        <label for="form7">Enter backup phrase</label>
+        <mdb-error *ngIf="mnemonic_valid === false">Input invalid</mdb-error>
+        <mdb-success *ngIf="mnemonic_valid === true">Input valid</mdb-success>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="doImport()">Import</button>
+      </div>
     </div>
   </div>
 
-  <div class="col-4 col-gray" *ngIf="wallet != null">
-    <div class="md-form" *ngIf="addresses">
-      <h2>Send</h2>
-      <input type="text" id="address" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_address" placeholder="Address"/>
-      <input type="number" id="amount" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_amount" placeholder="Amount"/>
-
-      <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="send()">Send</button>
+  <div class="col-4" *ngIf="wallet != null">
+    <div class="col-gray">
+      <div class="md-form" *ngIf="addresses">
+        <h2>Addresses</h2>
+        <div style="overflow: scroll;">
+          <div *ngFor="let address of addresses">
+            {{address.address}}
+          </div>
+        </div>
+        <div>
+          Balance: {{balance / environment.coin.division}}
+        </div>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="updateBalance()">Update</button>
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="logout()">Logout</button>
+      </div>
     </div>
   </div>
-  <div class="col-4 col-gray" *ngIf="wallet != null">
+
+  <div class="col-4" *ngIf="wallet != null">
+    <div class="col-gray">
+      <div class="md-form" *ngIf="addresses">
+        <h2>Send</h2>
+        <input type="text" id="address" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_address"
+          placeholder="Address" />
+        <input type="number" id="amount" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_amount"
+          placeholder="Amount" />
+
+        <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="send()">Send</button>
+      </div>
+    </div>
+  </div>
+  <div class="col-4" *ngIf="wallet != null">
+    <div class="col-gray">
       <div class="md-form" *ngIf="addresses">
         <h2>Send message</h2>
-        <input type="text" id="message" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_message" placeholder="Message"/>
-  
+        <input type="text" id="message" class="form-control" mdbInput [mdbValidate]="false" [(ngModel)]="send_message"
+          placeholder="Message" />
+
         <button mdbBtn color="info" block="true" class="my-4" type="submit" (click)="sendMessage()">Send</button>
       </div>
     </div>
+  </div>
 </div>
-<div class="row">
+<div class="row" style="margin-top:10px;">
   <div class="col-12 col-gray" *ngIf="wallet">
     <div *ngFor="let item of log">
       <span style="word-break: break-word;">{{item}}</span>
