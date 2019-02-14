@@ -65,6 +65,19 @@ PostgreSQL and LevelDB is used for this explorer.
 
 PostgreSQL provides analytical capabilities and is what powers the frontend and APIs. LevelDB is needed to track chainstate such as UTXOs and spent values, LevelDB as it is much faster than PostgreSQL.
 
+## Development
+
+This project uses (pipenv)[https://github.com/pypa/pipenv] for its dependencies, installing the dependencies for the API/sync server can be done using `pipenv sync` in the root. The dependencies for the UI in `ui/` can be installed using `npm install`.
+
+## Frontend
+`ng serve --open`
+
+## API
+`pipenv run uvicorn api.main:app_sio --debug`
+
+## Sync daemon
+`pipenv run python sync.py`
+
 ## Donate
 
 BTC: 3MAMXxzzdLy9NQqBvQebnrZjZjQJRC4HTD

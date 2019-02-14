@@ -5,6 +5,7 @@ import * as moment from 'moment';
 import { Title }  from '@angular/platform-browser';
 import { TransactionService } from './transactions.service';
 import { environment } from '../environments/environment';
+import { VERSION } from '../environments/version';
 
 @Component({
   selector: 'home',
@@ -16,6 +17,7 @@ export class HomeComponent {
   blocks : any [] = [];
   transactions : any [] = [];
   environment = environment;
+  version = VERSION;
 
   constructor(private router : Router, blocksService : BlocksService, private txService : TransactionService, private titleService : Title) {
     blocksService.getBlocks(10)
