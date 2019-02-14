@@ -21,6 +21,21 @@
         </tr>
       </tbody>
     </table>
+    <h1>Latest Transactions</h1>
+    <table mdbTable hover="true">
+      <thead>
+        <tr>
+          <th scope="col">Hash</th>
+          <th scope="col">Value out</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr mdbTableCol *ngFor="let tx of transactions">
+          <th scope="row"><a style="color: #007bff" (click)="goTx(tx.txid)">{{tx.txid}}</a></th>
+          <td>{{tx.output_value / environment.coin.division}} {{environment.coin.ticker}} </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
   <div class="col">
     <div class="col-gray">
