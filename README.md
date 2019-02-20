@@ -1,12 +1,12 @@
-# Kryptonite explorer
-!! Currently under development !!
+# Kal explorer
+:exclamation: :exclamation: Currently under development :exclamation: :exclamation:
 
-An open source explorer with support for UTXO based crypto-currencies.
+An open source explorer/wallet with support for UTXO based crypto-currencies.
 
-## Contributions
+## Contributions 
 Contributions are welcomed, encouraged and may be rewarded with [Tuxcoin](https://tuxcoin.io) (The open source software coin). 
 
-## Getting started
+## Getting started :school_satchel:
 
 This getting started section assumes you have docker installed.
 
@@ -69,16 +69,27 @@ PostgreSQL provides analytical capabilities and is what powers the frontend and 
 
 This project uses (pipenv)[https://github.com/pypa/pipenv] for its dependencies, installing the dependencies for the API/sync server can be done using `pipenv sync` in the root. The dependencies for the UI in `ui/` can be installed using `npm install`.
 
-## Frontend
+### Frontend
 `ng serve --open`
 
-## API
+### API
 `pipenv run uvicorn api.main:app_sio --debug`
 
-## Sync daemon
+### Sync daemon
 `pipenv run python sync.py`
 
-## Donate
+# Donate
+
+This project is not funded by anyone and is maintained and developed in my free time, if this project helps you please consider donating.
 
 TUX: tux1qcc00c3m5xadczfnklgpsgksxwpnu0dk8q5mhha
-BTC: 3MAMXxzzdLy9NQqBvQebnrZjZjQJRC4HTD
+
+BTC: 38XCv6WkzpXQWugnuyCuEXPHyzxFgEtVkx
+
+ETH: 0xDA0e3423c8E721cA2D00e625EdfBb7db29012b90
+
+XRP: rphkRxHMh8gMc2o7aFLoEEWWbQeCSWcLYb
+
+XLM: GALCRW7AXDA4ANVCL2DAQ7XQ3HQDL2H5GKN7KAKHTQHFEHG7AFZE2R6S
+
+<a href="https://www.buymeacoffee.com/HklE8Fn" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>

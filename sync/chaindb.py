@@ -547,8 +547,6 @@ class ChainDb(object):
         fpos = self.blk_write.tell()
         self.blk_write.write(msg_data)
         self.blk_write.flush()
-
-        batch = self.db.write_batch(transaction=True)
         
         with self.db.write_batch(transaction=True) as batch:
 
@@ -845,7 +843,7 @@ class ChainDb(object):
             return dt
 
     def putblock(self, block):
-        if self.haveblock(block.GetHash(), True):
+        if self.haveblock(block.GetHash(), False):
             self.log.info("Duplicate block %s submitted" % (b2lx(block.GetHash()), ))
             return False
         return self.putoneblock(block)

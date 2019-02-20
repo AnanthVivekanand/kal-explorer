@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 redis = Redis(settings.REDIS_HOST)
 
@@ -17,6 +18,7 @@ class Broadcast(BaseModel):
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['GET', 'POST'])
+app.add_middleware(ProxyHeadersMiddleware)
 
 mgr = socketio.AsyncRedisManager('redis://%s' % settings.REDIS_HOST)
 sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)

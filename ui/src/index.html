@@ -1,5 +1,31 @@
 <!doctype html>
 <html lang="en">
+<!--
+
+ ____  __.      .__                          .__                              
+|    |/ _|____  |  |     ____ ___  _________ |  |   ___________   ___________ 
+|      < \__  \ |  |   _/ __ \\  \/  /\____ \|  |  /  _ \_  __ \_/ __ \_  __ \
+|    |  \ / __ \|  |__ \  ___/ >    < |  |_> >  |_(  <_> )  | \/\  ___/|  | \/
+|____|__ (____  /____/  \___  >__/\_ \|   __/|____/\____/|__|    \___  >__|   
+        \/    \/            \/      \/|__|                           \/       
+
+https://github.com/ryan-shaw/kal-explorer
+
+MIT License
+
+A user friendly, open source explorer built for alt coins to have an effecitve explorer
+and wallet software that is secure, fast, and user friendly, but also allows for 
+extensionality through the use of an API to query all any data in the blockchain.
+
+The wallet software is completely client side and uses BIP32 mnemonics to generate
+addresses, this means the passphrase is all that's needed to recover all addresses/funds.
+
+The explorer comes with tools to start in a secure environment with HAProxy SSL
+termination with lets encrypt certificate, security settings include HSTS and CSP, it
+is highly recommended (especially if the wallet is enabled) that this setup is 
+used as it acheives a score of A+ on https://www.ssllabs.com/ 
+
+-->
 <head>
   <meta charset="utf-8">
   <title>Explorer</title>
@@ -7,7 +33,7 @@
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css" integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src *; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"> -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src *; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 </head>
 <body>
   <app-root></app-root>
