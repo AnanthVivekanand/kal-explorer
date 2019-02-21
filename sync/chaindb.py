@@ -23,9 +23,10 @@ from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
 from datetime import datetime, timedelta
 
 
-# for use on web side
-# mgr = socketio.AsyncRedisManager('redis://')
-# sio = socketio.AsyncServer(client_manager=mgr)
+if not os.path.exists('/data/explorer/blocks/'):
+    os.makedirs('/data/explorer/blocks/')
+if not os.path.exists('/data/explorer/chainstate/'):
+    os.makedirs('/data/explorer/chainstate')
 
 # connect to the redis queue as an external process
 external_sio = socketio.RedisManager('redis://%s' % settings.REDIS_HOST, write_only=True)
@@ -106,7 +107,7 @@ class ChainDb(object):
         #    height:*  list of blocks at height h
         #    blkmeta:* block metadata
         #    blocks:*  block seek point in stream
-        datadir = './data'
+        datadir = '/data/explorer/blocks/'
         self.db = self.cache.db
         self.blk_write = io.BufferedWriter(io.FileIO(datadir + '/blocks.dat','ab'))
         self.blk_read = io.BufferedReader(io.FileIO(datadir + '/blocks.dat','rb'))

@@ -1,3 +1,8 @@
-#!/usr/bin/execlineb -P
+#!/usr/bin/with-contenv sh
 
-nginx -g "daemon off;"
+if [ -z ${SYNC_ONLY:+x} ];
+then
+	nginx -g "daemon off;"
+else
+	s6-pause;
+fi

@@ -3,4 +3,8 @@
 cd /data/api
 ls -l
 echo $DEFAULT_MODULE_NAME
-exec /usr/local/bin/gunicorn --forwarded-allow-ips 172.18.0.4 -k uvicorn.workers.UvicornWorker -c "${GUNICORN_CONF}" "${DEFAULT_MODULE_NAME}"
+if [ -z ${SYNC_ONLY:+x} ]; then
+	exec /usr/local/bin/gunicorn --forwarded-allow-ips 172.18.0.4 -k uvicorn.workers.UvicornWorker -c "${GUNICORN_CONF}" "${DEFAULT_MODULE_NAME}"
+else
+	s6-pause;
+fi

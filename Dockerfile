@@ -19,8 +19,16 @@ RUN set -ex; \
     mkdir -p /data/api /data/ui ; \
     pip install uvicorn gunicorn
 
-COPY Pipfile /data/api/
-COPY Pipfile.lock /data/api/
+RUN set -ex; \
+    apk add --no-cache git autoconf libtool automake ; \
+    git clone https://github.com/bitcoin-core/secp256k1.git ; \
+    cd secp256k1 ; \
+    ./autogen.sh ; \
+    ./configure ; \
+    make ; \
+    make install ; \
+    cd .. ; \
+    rm -r secp256k1
 
 COPY ui/package.json /data/ui/
 COPY ui/package-lock.json /data/ui/
@@ -31,6 +39,9 @@ COPY ui /data/ui/
 RUN ng build --prod
 
 WORKDIR /data/api
+
+COPY Pipfile /data/api/
+COPY Pipfile.lock /data/api/
 
 RUN pipenv lock --requirements > requirements.txt && pip install -r requirements.txt
 
@@ -45,6 +56,8 @@ ENV PYTHONPATH          /data
 
 COPY api/* /data/api/
 COPY shared /data/shared
+COPY sync /data/sync
+COPY sync.py /data/
 
 WORKDIR /data
 

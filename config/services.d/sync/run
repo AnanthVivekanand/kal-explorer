@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv sh
+
+cd /data/
+if [ -z ${SYNC_ONLY:+x} ]; then
+	s6-pause;
+else
+	python sync.py
+fi

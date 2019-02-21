@@ -6,7 +6,7 @@ import threading
 
 class Cache(object):
     def __init__(self):
-        self.db = plyvel.DB('./chainstate/', create_if_missing=True)
+        self.db = plyvel.DB('/data/explorer/chainstate/', create_if_missing=True)
         # self.memCache = C(maxsize=1000)
     
     def clear(self):
