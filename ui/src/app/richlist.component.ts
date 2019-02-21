@@ -23,6 +23,9 @@ export class RichListComponent {
 
     this.addressService.getDistribution().then(data => {
       this.distribution = data;
+      for(let [key, value] of Object.entries(this.distribution)){
+        value['percent'] = Math.round(value['percent'] * 100) / 100;
+      }
     });
   }
 
