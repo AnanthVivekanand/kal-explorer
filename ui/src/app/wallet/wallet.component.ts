@@ -10,7 +10,6 @@ import coinSelect from 'coinselect';
 import { WalletService } from './wallet.service';
 import * as CryptoJS from 'crypto-js';
 import { environment } from '../../environments/environment';
-import { HttpXsrfCookieExtractor } from '@angular/common/http/src/xsrf';
  
 const TUXCOIN = {
     messagePrefix: '\x19Tuxcoin Signed Message:\n',

@@ -5,7 +5,6 @@ import { AddressService } from './address.service';
 import { TransactionService } from './transactions.service';
 import { Router } from '@angular/router';
 import { environment } from '../environments/environment';
-import io from 'socket.io-client';
 
 @Component({
   selector: 'app-root',
