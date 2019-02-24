@@ -10,6 +10,7 @@ DB_HOST = os.getenv('DB_HOST', '172.17.0.2')
 REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
 # If forked from Bitcoin this is usually correct
 COIN = 100000000
+# WARNING: Only use a trusted node, kal-explorer relies on the connected node for verification of blocks/transactions
 NODE_IP = '45.77.228.139'
 
 class CoreChainParams(bitcointx.core.CoreChainParams):
