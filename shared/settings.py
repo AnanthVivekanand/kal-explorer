@@ -4,8 +4,11 @@ import bitcointx
 from dotenv import load_dotenv
 load_dotenv()
 
+# Host of the postgres database
 DB_HOST = os.getenv('DB_HOST', '172.17.0.2')
+# Redis host is required for socket.io functions
 REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
+# If forked from Bitcoin this is usually correct
 COIN = 100000000
 NODE_IP = '45.77.228.139'
 
@@ -17,6 +20,7 @@ class CoreChainParams(bitcointx.core.CoreChainParams):
     NAME = None
 
 class ChainParams(CoreChainParams):
+    # Max supply, only used for TX validation (as in the client)
     MAX_MONEY = 69000000 * COIN
     GENESIS_BLOCK = None # currently not needed
     PROOF_OF_WORK_LIMIT = None # currently not needed

@@ -25,6 +25,7 @@ else:
 # Gunicorn config variables
 loglevel = use_loglevel
 #workers = web_concurrency
+#TODO: Possibly replace gunicorn as it doesn't have sticky session support
 workers = 1
 bind = use_bind
 keepalive = 120

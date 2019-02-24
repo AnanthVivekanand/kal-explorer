@@ -1,3 +1,23 @@
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+# TODO: add method descriptions
+
 import re
 import json
 import struct
@@ -22,10 +42,7 @@ app.add_middleware(ProxyHeadersMiddleware)
 
 mgr = socketio.AsyncRedisManager('redis://%s' % settings.REDIS_HOST)
 sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)
-#app.add_middleware(socketio.ASGIApp, socketio_server=sio)
 app_sio = socketio.ASGIApp(sio, app)
-#sio_app = socketio.ASGIApp(sio, app)
-#uvicorn.run(sio_app)
 
 from shared.models import Address, Transaction, Block, Utxo
 from shared.settings import POOLS
@@ -108,14 +125,6 @@ async def read_address(address : str):
 @app.get('/addr/{address}/utxo')
 async def read_addr_utxos(address : str):
     utxos = Utxo.select().where((Utxo.address == address) & (Utxo.spent == False))
-    #utxos = []
-    # check utxo spent?
-    #for utxo in _utxos:
-    #    q = json.dumps([{'txid': utxo.txid, 'vout': utxo.vout}])
-    #    res = Transaction.raw("SELECT * FROM transaction WHERE vin @> %s", q).execute()
-    #    if not len(res):
-    #        utxos.append(utxo)
-    # select * from transaction where vin @> '[{"txid": "016520b9684c95d82111d04257766684ae4a4df45bd7f9b9bdf5648364590053"}]' and block is null
     block = get_latest_block()
     return list(map(_utxo_map(block), utxos))
 
@@ -362,21 +371,3 @@ def read_status(q=None):
 def broadcast(data : Broadcast):
     redis.publish('broadcast', data.data)
     return data
-
-# class BroadcastResource(Resource):
-#     def put(self):
-#         data = request.get_data()
-
-# select address, txid, balance, addresses_out addresses_in from address join transaction  ON addresses_in ? address or addresses_out ? address where address = 'TE2kARbJQrqPG8GfdihzNUYgXxeEg21982' limit 10;
-# api.add_resource(RichListResource, '/richlist')
-# api.add_resource(AddressResource, '/address/<address>')
-# api.add_resource(TransactionResource, '/tx/<txid>')
-# api.add_resource(BlockResource, '/block/<blockhash>')
-# api.add_resource(BlockListResource, '/blocks')
-# api.add_resource(AddressTransactions, '/txs/<address>')
-# api.add_resource(BlockTransactions, '/txs')
-# api.add_resource(MempoolResource, '/mempool')
-# api.add_resource(StatusResource, '/status')
-# api.add_resource(BroadcastResource, '/broadcast')
-
-#uvicorn.run(app_sio)
