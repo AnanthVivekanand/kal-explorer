@@ -209,7 +209,7 @@ def read_blockhash(blockhash):
         return HTMLResponse(status_code=404)
     nxt = None
     try:
-        nxt = Block.get(Block.height == b.height + 1)
+        nxt = Block.get(Block.height == b.height + 1, Block.orphaned == False)
     except Block.DoesNotExist:
         pass
     # txs = b.tx
