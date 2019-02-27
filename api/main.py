@@ -211,17 +211,18 @@ def read_block_txs(block : str):
 
 @app.get('/block/{blockhash}')
 def read_blockhash(blockhash):
+    prev = None
+    nxt = None
     try:
         b = Block.get(Block.hash == blockhash)
-        prev = Block.get(Block.height == b.height - 1)
+        if b.height > 0:
+            prev = Block.get(Block.height == b.height - 1)
     except Block.DoesNotExist:
         return HTMLResponse(status_code=404)
-    nxt = None
     try:
         nxt = Block.get(Block.height == b.height + 1, Block.orphaned == False)
     except Block.DoesNotExist:
         pass
-    # txs = b.tx
     txs = list(Transaction.select().where(Transaction.block == b.hash).execute())
 
     txs = list(map(lambda tx : {
@@ -254,8 +255,9 @@ def read_blockhash(blockhash):
         'bits': bytes(b.bits).hex(),
         'nonce': b.nonce,
         'pool': pool,
-        'previousblockhash': prev.hash,
     }
+    if prev:
+        res['previousblockhash'] = prev.hash
     if nxt:
         res['nextblockhash'] = nxt.hash
     return res
@@ -295,7 +297,7 @@ def read_blocks(beforeBlock=None,  limit : int = 100):
 
 @app.get('/misc')
 def read_misc():
-    supply = Address.select(fn.SUM(Address.balance)).execute()[0].sum
+    supply = Address.select(fn.SUM(Address.balance)).execute(None)[0].sum
 
     return {
         'supply': int(supply),
@@ -304,7 +306,7 @@ def read_misc():
 # TODO: Probably should cache this method
 @app.get('/distribution')
 def read_distribution():
-    supply = Address.select(fn.SUM(Address.balance)).execute()[0].sum
+    supply = Address.select(fn.SUM(Address.balance)).execute(None)[0].sum
 
     res = {}
     sq = Address.select(Address.balance).order_by(Address.balance.desc()).limit(25)

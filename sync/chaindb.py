@@ -30,7 +30,7 @@ import socketio
 from shared import settings
 from datetime import datetime
 from sync.cache import Cache
-from shared.models import Block, Transaction, Address, AddressChanges, Utxo, db
+from shared.models import Block, Transaction, Address, AddressChanges, Utxo, Message, db
 
 from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
@@ -156,6 +156,9 @@ class ChainDb(object):
         self.checkutxos(True)
         self.orphans = {}
         self.orphan_deps = {}
+        if Block.select().count(None) == 0:
+            self.log.info('Initialising genesis block')
+            self.putblock(self.params.GENESIS_BLOCK)
 
     def locate(self, locator):
         return 0
@@ -352,7 +355,7 @@ class ChainDb(object):
                     # select * from utxo join (VALUES('TE8evzF3gZoRQozJgfNzekrv7uiBgKKFiE', '001239f17dde519a4fbadb71dda3725ef7474ab2995b6466e8c079dc5c2a7865:0')) AS t(addr, t) ON addr = address and txid_vout = t;
                     q = 'DELETE FROM utxo WHERE id in (SELECT id FROM utxo JOIN (VALUES %s) AS t (t, v) ON t = txid AND v = vout)' % ','.join(utxos)
                     #Utxo.delete().where(Utxo.txid_vout.in_(utxos)).execute()
-                    res = Utxo.raw(q).execute()
+                    Utxo.raw(q).execute(None)
             self.utxo_changes = 0
 
     def mempool_add(self, tx):
@@ -365,8 +368,7 @@ class ChainDb(object):
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         tx_parsed = self.parse_tx(timestamp, None, None, tx)
         Transaction.insert_many([tx_parsed]).execute(None)
-        txid = b2lx(tx.GetTxid())
-        for idx, vin in enumerate(tx.vin):
+        for vin in tx.vin:
             Utxo.update(spent=True).where((Utxo.txid == b2lx(vin.prevout.hash)) & (Utxo.vout == vin.prevout.n)).execute()
         external_sio.emit('tx', tx_parsed, room='inv')
 
@@ -533,8 +535,6 @@ class ChainDb(object):
         return False
 
     def putoneblock(self, block, initsync=True):
-
-        
         if not self.have_prevblock(block):
             self.orphans[block.GetHash()] = True
             self.orphan_deps[block.hashPrevBlock] = block
@@ -792,7 +792,6 @@ class ChainDb(object):
     def _update_address_index(self):
         with self.db.write_batch(transaction=True) as addressBatch:
             for key, addr in self.address_changes.items():
-                temp = {'address': key, 'balance_change': addr['balance']}
                 k = ('address:%s' % key).encode()
                 (balance, sent, received)  = struct.unpack('lll', self.db.get(k, struct.pack('lll', 0, 0, 0)))
                 addressBatch.put(k, struct.pack('lll', 
@@ -850,15 +849,10 @@ class ChainDb(object):
             
             self.checkutxos()
 
-            h = block.GetHash()
-            # wb.put(b'tip', h)
-            # wb.put(b'height', struct.pack('i', height))
-
             for key, value in self.utxo_cache.items():
                 wb.put(key, value)
             self.utxo_cache = {}
-            
-            # self.log.info("UpdateTip: %s height %s" % (b2lx(h), height))
+
             return dt
 
     def putblock(self, block):

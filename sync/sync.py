@@ -80,7 +80,7 @@ def verbose_recvmsg(message):
 
 class NodeConn(Greenlet):
 
-    def __init__(self, dstaddr, dstport, log, peermgr, mempool, chaindb):
+    def __init__(self, dstaddr, dstport, log, peermgr, mempool, chaindb : ChainDb):
         Greenlet.__init__(self)
         self.dstaddr = dstaddr
         self.dstport = dstport

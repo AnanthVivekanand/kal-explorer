@@ -1,43 +1,23 @@
 import os
 import bitcointx
+import importlib
 
 from dotenv import load_dotenv
 load_dotenv()
 
-# Host of the postgres database
-DB_HOST = os.getenv('DB_HOST', '172.17.0.2')
-# Redis host is required for socket.io functions
-REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
-# If forked from Bitcoin this is usually correct
-COIN = 100000000
-# WARNING: Only use a trusted node, kal-explorer relies on the connected node for verification of blocks/transactions
-NODE_IP = '45.77.228.139'
+DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_USER = os.getenv('DB_USER', 'postgres')
+DB_PASS = os.getenv('DB_PASS', 'postgres')
+DB_PORT = os.getenv('DB_PORT', 5432)
 
-class CoreChainParams(bitcointx.core.CoreChainParams):
-    MAX_MONEY = None
-    GENESIS_BLOCK = None
-    PROOF_OF_WORK_LIMIT = None
-    SUBSIDY_HALVING_INTERVAL = None
-    NAME = None
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+NODE_IP    = os.getenv('COIN_DAEMON', '45.77.228.139')
 
-class ChainParams(CoreChainParams):
-    # Max supply, only used for TX validation (as in the client)
-    MAX_MONEY = 69000000 * COIN
-    GENESIS_BLOCK = None # currently not needed
-    PROOF_OF_WORK_LIMIT = None # currently not needed
-    SUBSIDY_HALVING_INTERVAL = None # currently not needed
-    NAME = None # currently not needed
-    RPC_PORT = 42072
-    PORT = 42071
-    NETMAGIC = b'\xfc\xc5\xbf\xda'
-    BASE58_PREFIXES = {
-        'PUBKEY_ADDR':65,
-        'SCRIPT_ADDR':64,
-        'SECRET_KEY' :193,
-        'EXTENDED_PUBKEY': b'\x04\x88\xb2\x1e',
-        'EXTENDED_PRIVKEY': b'\x04\x88\xad\xe4'
-    }
-    BECH32_HRP = 'tux'
+EXP_COIN = os.getenv('COIN', 'tux')
+module = importlib.import_module("shared.coins.%s" % EXP_COIN)
+ChainParams = module.ChainParams
+
+DB_NAME = 'explorer_%s' % EXP_COIN
 
 POOLS = {
     'blazepool': {

@@ -4,7 +4,7 @@ from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeF
 from playhouse.postgres_ext import BinaryJSONField
 from shared.settings import POOLS
 
-db = PostgresqlDatabase('tuxcoin', user='postgres', password='postgres', host=settings.DB_HOST, port=5432)
+db = PostgresqlDatabase(settings.DB_NAME, user=settings.DB_USER, password=settings.DB_PASS, host=settings.DB_HOST, port=settings.DB_PORT)
 
 class BaseModel(Model):
     class Meta:

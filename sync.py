@@ -22,13 +22,12 @@ if __name__ == "__main__":
 
     P = settings.ChainParams
     params = P()
-    print(params)
     bitcoin.params.MESSAGE_START = params.NETMAGIC
     bitcoin.params.BASE58_PREFIXES = params.BASE58_PREFIXES
 
     mempool = MemPool(logger)
     chaindb = ChainDb(logger, mempool, params)
-    bitcointx.SelectAlternativeParams(settings.CoreChainParams, P)
+    bitcointx.SelectAlternativeParams(settings.ChainParams, P)
     threads = []
     peermgr = PeerManager(logger, mempool, chaindb)
     c = peermgr.add(settings.NODE_IP, P.PORT)
