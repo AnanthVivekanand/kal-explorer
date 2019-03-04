@@ -368,6 +368,22 @@ def read_status(q=None):
             'difficulty': latest_block.difficulty,
             'mempool_txs': mempool_txs,
         }
+    elif q == 'getBestBlockHash':
+        latest_block = Block.select(Block.hash).where(Block.orphaned == False).order_by(Block.height.desc()).get()
+        return {
+            'bestblockhash': latest_block.hash
+        }
+    elif q == 'getDifficulty':
+        latest_block = Block.select(Block.difficulty).where(Block.orphaned == False).order_by(Block.height.desc()).get()
+        return {
+            'difficulty': latest_block.difficulty
+        }
+    elif q == 'getLastBlockHash':
+        latest_block = Block.select(Block.hash).where(Block.orphaned == False).order_by(Block.height.desc()).get()
+        return {
+            'syncTipHash': latest_block.hash,
+            'lastblockhash': latest_block.hash,
+        }
 
 @app.post('/broadcast')
 def broadcast(data : Broadcast):
