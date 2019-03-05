@@ -312,7 +312,6 @@ class ChainDb(object):
                     if not self.initial_sync:
                         for block in blocks:
                             b = Block.create(**block)
-#                            print(b.to_json())
                             external_sio.emit('block', b.to_json(), room='inv')
                     else:
                         Block.insert_many(blocks).execute(None)
@@ -482,7 +481,11 @@ class ChainDb(object):
             if not self.puttxidx(txid, txidx, batch=wb):
                 self.log.warn("TxIndex failed %s" % (txid,))
                 return False
-            self.parse_tx(timestamp, b2lx(bHash), bHeight, tx, wb)
+            tx_parsed = self.parse_tx(timestamp, b2lx(bHash), bHeight, tx, wb)
+            # Emit coinbase transactions
+            print(tx.is_coinbase())
+            if tx.is_coinbase():
+                external_sio.emit('tx', tx_parsed, room='inv')
 
     def clear_txout(self, txhash, n_idx, batch=None):
         txidx = self.gettxidx(txhash)

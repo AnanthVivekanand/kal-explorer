@@ -36,7 +36,7 @@ COPY ui/package-lock.json /data/ui/
 WORKDIR /data/ui
 RUN npm install && ./node_modules/.bin/rn-nodeify --install process --hack
 COPY ui /data/ui/
-RUN ng build --prod
+RUN ng build --prod --subresourceIntegrity=true
 
 WORKDIR /data/api
 
