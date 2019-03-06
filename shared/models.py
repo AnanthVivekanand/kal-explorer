@@ -1,6 +1,7 @@
 import struct
 from shared import settings
-from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, FloatField, BigIntegerField, BlobField, TextField, BooleanField
+from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, \
+FloatField, BigIntegerField, BlobField, TextField, BooleanField, UUIDField, ForeignKeyField
 from playhouse.postgres_ext import BinaryJSONField
 from shared.settings import POOLS
 
@@ -84,6 +85,9 @@ class AddressChanges(BaseModel):
     sent_change = BigIntegerField()
     received_change = BigIntegerField()
 
+class WalletGroup(BaseModel):
+    uid = UUIDField(unique=True)
+
 class Address(BaseModel):
     address = TextField(unique=True, index=True)
     balance = BigIntegerField()
@@ -98,6 +102,10 @@ class Address(BaseModel):
             'received': self.received,
         }
 
+class WalletGroupAddress(BaseModel):
+    wallet = UUIDField(index=True)
+    address = TextField(index=True)
+
 db.connect()
 # db.drop_tables([Block, Transaction, Address, AddressChanges, Message])
-db.create_tables([Block, Transaction, Address, AddressChanges, Message, Utxo])
+db.create_tables([Block, Transaction, WalletGroup, Address, WalletGroupAddress, AddressChanges, Message, Utxo])

@@ -44,7 +44,7 @@ mgr = socketio.AsyncRedisManager('redis://%s' % settings.REDIS_HOST)
 sio = socketio.AsyncServer(async_mode='asgi', client_manager=mgr)
 app_sio = socketio.ASGIApp(sio, app)
 
-from shared.models import Address, Transaction, Block, Utxo
+from shared.models import Address, Transaction, Block, Utxo, WalletGroup, WalletGroupAddress
 from shared.settings import POOLS
 from peewee import RawQuery, fn
 from datetime import datetime, timedelta
@@ -134,6 +134,29 @@ async def read_addrs_utxo(addresses : str):
     block = get_latest_block()
     return list(map(_utxo_map(block), utxos))
 
+
+@app.get('/wallet_groups')
+async def read_wallet_groups():
+    wallets =(WalletGroupAddress
+        .select(WalletGroupAddress.wallet, fn.COUNT(WalletGroupAddress.address))
+        .group_by(WalletGroupAddress.wallet)
+        .order_by(fn.COUNT(WalletGroupAddress.address).desc())
+        .paginate(0, 10))
+
+    return list(map(lambda wallet : {'wallet': wallet.wallet, 'address_count': wallet.count}, wallets))
+
+@app.get('/wallet_groups/{uid}')
+async def read_wallet_groups_uid(uid : str):
+    addresses = WalletGroupAddress.select(WalletGroupAddress.address).where(WalletGroupAddress.wallet == uid)
+    return list(map(lambda address: address.address, addresses))
+
+
+@app.get('/wallet_groups/addr/{addr}')
+async def read_wallet_groups_addr(addr : str):
+    record = WalletGroupAddress.get(WalletGroupAddress.address == addr)
+    return {
+        'wallet': record.wallet
+    }
 
 ### Transaction section
 

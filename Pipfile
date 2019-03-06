@@ -23,6 +23,7 @@ python-socketio = "*"
 redis = "*"
 aioredis = "*"
 redispy = "*"
+lmdb = "*"
 
 [requires]
 python_version = "3.7"

@@ -30,7 +30,7 @@ import socketio
 from shared import settings
 from datetime import datetime
 from sync.cache import Cache
-from shared.models import Block, Transaction, Address, AddressChanges, Utxo, Message, db
+from shared.models import Block, Transaction, Address, AddressChanges, Utxo, Message, db, WalletGroup, WalletGroupAddress
 
 from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
@@ -40,11 +40,12 @@ from bitcoin.core.script import CScript
 from bitcointx.wallet import CBitcoinAddress as TX_CBitcoinAddress
 from datetime import datetime, timedelta
 
-
 if not os.path.exists('/data/explorer/blocks/'):
     os.makedirs('/data/explorer/blocks/')
 if not os.path.exists('/data/explorer/chainstate/'):
     os.makedirs('/data/explorer/chainstate')
+
+from wallet_group.group import connect_input
 
 # connect to the redis queue as an external process
 external_sio = socketio.RedisManager('redis://%s' % settings.REDIS_HOST, write_only=True)
@@ -315,6 +316,32 @@ class ChainDb(object):
                             external_sio.emit('block', b.to_json(), room='inv')
                     else:
                         Block.insert_many(blocks).execute(None)
+            with self.db.write_batch(transaction=True) as deleteBatch:
+                with self.db.snapshot() as sn:
+                    wallets = []
+                    walletsAddress = []
+                    for key, value in sn.iterator(prefix=b'walletCreate:'):
+                        uid = key.decode().split(':')[1]
+                        wallets.append({
+                            'uid': uid
+                        })
+                        walletsAddress.append({
+                            'wallet': uid,
+                            'address': value.decode(),
+                        })
+                        deleteBatch.delete(key)
+                    if wallets:
+                        WalletGroup.insert_many(wallets).execute(None)
+
+                    for key, value in sn.iterator(prefix=b'walletAdd:'):
+                        addr = key.decode().split(':')[1]
+                        walletsAddress.append({
+                            'wallet': value.decode(),
+                            'address': addr,
+                        })
+                        deleteBatch.delete(key)
+                    if walletsAddress:
+                        WalletGroupAddress.insert_many(walletsAddress).execute(None)
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:
@@ -386,7 +413,6 @@ class ChainDb(object):
             self.spend_txout(b2lx(vin.prevout.hash), vin.prevout.n, batch)
         else:
             preaddress, prevalue = self.getutxo(b2lx(vin.prevout.hash), vin.prevout.n)
-#        tx_data["vin"].append({"address": preaddress, "value": prevalue})
         tx_data["vin"].append({"txid": b2lx(vin.prevout.hash), "vout": vin.prevout.n, "value": prevalue})
         tx_data["input_value"] += prevalue
 
@@ -468,6 +494,9 @@ class ChainDb(object):
         if batch:
             batch.put(('pg_tx:%s' % txid).encode(), json.dumps(tx_data).encode())
             self.transaction_change_count += 1
+            # connect inputs to wallet group tree
+            addrs = list(map(lambda x: x[0], tx_data['addresses_in'].items()))
+            connect_input(batch, addrs)
         return tx_data
 
     def parse_vtx(self, vtx, wb, timestamp, bHash, bHeight):
@@ -483,8 +512,7 @@ class ChainDb(object):
                 return False
             tx_parsed = self.parse_tx(timestamp, b2lx(bHash), bHeight, tx, wb)
             # Emit coinbase transactions
-            print(tx.is_coinbase())
-            if tx.is_coinbase():
+            if not self.initial_sync and tx.is_coinbase():
                 external_sio.emit('tx', tx_parsed, room='inv')
 
     def clear_txout(self, txhash, n_idx, batch=None):
