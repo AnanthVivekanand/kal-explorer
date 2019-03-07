@@ -10,6 +10,7 @@ import { TransactionComponent } from './transaction.component';
 import { TransactionBlockComponent } from './components/transaction.component';
 import { RichListComponent } from './richlist.component';
 import { WalletComponent } from './wallet/wallet.component';
+import { WalletGroupComponent } from './wallet_group.component';
 
 import { MDBBootstrapModule } from 'angular-bootstrap-md';
 import { HttpClientModule } from '@angular/common/http';
@@ -31,6 +32,7 @@ import { Title }  from '@angular/platform-browser';
     RichListComponent,
     TransactionBlockComponent,
     WalletComponent,
+    WalletGroupComponent,
   ],
   imports: [
     BrowserModule,

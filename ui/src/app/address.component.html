@@ -2,7 +2,10 @@
   <h1><span>Address</span><small>{{balance}} TUX</small></h1>
 
   <div class="card card-body bg-light" style="padding: 0.5rem;">
-    <span><strong>Address</strong> <span class="txid text-muted"> {{address}}</span></span>
+    <span>
+      <strong>Address</strong> <span class="txid text-muted"> {{address}}</span>
+      <span *ngIf="walletId" style="float: right;"><strong>Wallet </strong><a (click)="goWalletGroup(walletId)" style="color: #007bff">{{walletId}}</a></span>
+    </span>
   </div>
   <h2>Summary</h2>
   <div class="row">

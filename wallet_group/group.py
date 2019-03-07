@@ -26,7 +26,7 @@ env = lmdb.open('/data/explorer/wallets', max_dbs=1, map_size=int(1e9))
 # with env.begin(write=True) as txn:
 #     txn.drop(main, delete=True)
 
-class WalletGroup(object):
+class WalletGrouper(object):
 
     def __init__(self, path, drop=False):
         env = lmdb.open('/data/explorer/wallets', max_dbs=1, map_size=int(1e9))

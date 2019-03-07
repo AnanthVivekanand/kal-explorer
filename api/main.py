@@ -161,8 +161,13 @@ async def read_wallet_groups():
 
 @app.get('/wallet_groups/{uid}')
 async def read_wallet_groups_uid(uid : str):
-    addresses = WalletGroupAddress.select(WalletGroupAddress.address).where(WalletGroupAddress.wallet == uid)
-    addresses = list(map(lambda address: address.address, addresses))
+    addresses = (WalletGroupAddress
+        .select(WalletGroupAddress.address, Address.balance)
+        .join(Address, on=(WalletGroupAddress.address == Address.address))
+        .where(WalletGroupAddress.wallet == uid)
+        .order_by(Address.balance.desc())).dicts()
+    # print(addresses.dicts())
+    addresses = list(map(lambda address: {'address': address['address'], 'balance': address['balance']}, addresses))
     return {
         'count': len(addresses),
         'addresses': addresses

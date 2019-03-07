@@ -45,7 +45,7 @@ if not os.path.exists('/data/explorer/blocks/'):
 if not os.path.exists('/data/explorer/chainstate/'):
     os.makedirs('/data/explorer/chainstate')
 
-from wallet_group.group import WalletGroup
+from wallet_group.group import WalletGrouper
 
 # connect to the redis queue as an external process
 external_sio = socketio.RedisManager('redis://%s' % settings.REDIS_HOST, write_only=True)
@@ -151,6 +151,7 @@ class ChainDb(object):
         self.utxo_cache = {}
         self.tx_lock = False
         self.initial_sync = True
+        self.wallet_group = WalletGrouper('/data/explorer/wallets')
         self.checktransactions(True)
         self.checkaddresses(True)
         self.checkblocks(0, True)

@@ -7,6 +7,7 @@ import { AddressComponent } from './address.component';
 import { TransactionComponent } from './transaction.component';
 import { RichListComponent } from './richlist.component';
 import { WalletComponent } from './wallet/wallet.component';
+import { WalletGroupComponent } from './wallet_group.component';
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -15,6 +16,7 @@ const routes: Routes = [
   { path: 'tx/:txid', component: TransactionComponent },
   { path: 'richlist', component: RichListComponent },
   { path: 'wallet', component: WalletComponent },
+  { path: 'wallet_group/:walletId', component: WalletGroupComponent },
 ];
 
 @NgModule({

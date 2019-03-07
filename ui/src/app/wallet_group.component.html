@@ -1,0 +1,19 @@
+<div>
+  <h1><span>Wallet {{walletId}}</span></h1>
+  <table mdbTable hover="true">
+    <thead>
+        <tr>
+        <th scope="col">#</th>
+        <th scope="col">Address</th>
+        <th scope="col">Balance</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr mdbTableCol *ngFor="let entry of addresses; let i = index">
+        <th>{{i + 1}}</th>
+        <td scope="row"><a style="color: #007bff" (click)="goAddress(entry.address)">{{entry.address}}</a></td>
+        <td>{{entry.balance / environment.coin.division}} TUX</td>
+        </tr>
+    </tbody>
+    </table>
+</div>
