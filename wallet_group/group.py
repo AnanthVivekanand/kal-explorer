@@ -10,7 +10,6 @@
 import uuid
 import lmdb
 import pickle
-from pybloom_live import BloomFilter
 from io import BytesIO
 
 # Wallet.BLOOM_ADDRESSES = 3000000; // 3 million
@@ -27,83 +26,106 @@ env = lmdb.open('/data/explorer/wallets', max_dbs=1, map_size=int(1e9))
 # with env.begin(write=True) as txn:
 #     txn.drop(main, delete=True)
 
-def input(*args):
-    res = []
-    for arg in args:
-        res.append('test_%s' % arg)
-    return res
+class WalletGroup(object):
 
-def get_address_walletid(txn, addr):
-    return txn.get(('addresses:{}'.format(addr)).encode())
+    def __init__(self, path, drop=False):
+        env = lmdb.open('/data/explorer/wallets', max_dbs=1, map_size=int(1e9))
+        if drop:
+            main = env.open_db()
+            with env.begin(write=True) as txn:
+                txn.drop(main, delete=True)
 
-def put_address_walletid(txn, addr, walletId):
-    return txn.put(('addresses:{}'.format(addr)).encode(), walletId)
+    def get_address_walletid(self, txn, addr):
+        return txn.get(('addresses:{}'.format(addr)).encode())
 
-def get_address_map(txn, walletId):
-    res = txn.get(('addressMap:{}'.format(walletId)).encode())
-    if not res:
-        res = set()
-    else:
-        res = pickle.loads(res)
-    return res
+    def put_address_walletid(self, txn, addr, walletId):
+        return txn.put(('addresses:{}'.format(addr)).encode(), walletId)
 
-def put_address_map(txn, walletId, addr):
-    res = get_address_map(txn, walletId)
-    res.add(addr)
-    b = pickle.dumps(res)
-    return txn.put(('addressMap:{}'.format(walletId)).encode(), b)
+    def get_address_map(self, txn, walletId):
+        res = txn.get(('addressMap:{}'.format(walletId)).encode())
+        if not res:
+            res = set()
+        else:
+            res = pickle.loads(res)
+        return res
 
-def del_address_map(txn, walletId):
-    txn.delete(('addressMap:{}'.format(walletId)).encode())
+    def put_address_map(self, txn, walletId, addr):
+        res = self.get_address_map(txn, walletId)
+        res.add(addr)
+        b = pickle.dumps(res)
+        return txn.put(('addressMap:{}'.format(walletId)).encode(), b)
 
-def connect_input(batch, addrs):
-    with env.begin(write=True) as txn:
-        for addr in addrs:
-            if addr is None:
-                continue
-            walletId = get_address_walletid(txn, addr)
-            if not walletId:
-                continue
-            addressFilter = txn.get(walletId)
-            if addressFilter is None:
-                continue
-            for addr in addrs:
-                existingWalletId = get_address_walletid(txn, addr)
-                if not existingWalletId:
-                    put_address_walletid(txn, addr, walletId)
-                    print('Added %s to wallet %s' % (addr, walletId))
-                    batch.put(('walletAdd:%s' % addr).encode(), walletId)
-                else:
-                    mapDelete = set()
-                    for existingAddr in get_address_map(txn, existingWalletId):
-                        if existingWalletId != walletId:
-                            # Delete entry in addressMap
-                            # Point addresses to existing walletId
-                            walletMerge[existingWalletId] = walletId
-                            put_address_walletid(txn, existingAddr, walletId)
-                            put_address_map(txn, walletId, addr)
-                            mapDelete.add(existingWalletId)
-                            # TODO: Need to update db?
-                            print('Merged %s into %s' % (existingAddr, walletId))
-                    for delete in mapDelete:
-                        del_address_map(txn, delete)
-            return
+    def del_address_map(self, txn, walletId):
+        txn.delete(('addressMap:{}'.format(walletId)).encode())
+
+    def create(self, txn, batch, addrs):
         # Create new wallet
         walletId = str(uuid.uuid4()).encode()
         for addr in addrs:
             if addr is None:
                 continue
-            put_address_walletid(txn, addr, walletId)
-            put_address_map(txn, walletId, addr)
-            print('Created wallet %s for %s' % (walletId, addr))
-            batch.put(('walletCreate:%s' % walletId.decode()).encode(), addr.encode())
+            self.put_address_walletid(txn, addr, walletId)
+            self.put_address_map(txn, walletId, addr)
+            print('Created wallet %s for %s' % (walletId.decode(), addr))
+            batch.put(('walletCreate:%s' % addr).encode(), walletId)
         txn.put(walletId, b'1')
 
-# connect_input(input(1, 2, 3))
-# connect_input(input(1))
+    def connect_input(self, batch, addrs):
+        with env.begin(write=True) as txn:
 
-# connect_input(input(1, 4))
-# connect_input(input(5, 6))
-# connect_input(input(4, 5))
+            walletId = None
+            for addr in addrs:
+                _walletId = self.get_address_walletid(txn, addr)
+                if walletId is None:
+                    walletId = _walletId
 
-# connect_input(input(7, 8, 9, 1))
+            if not walletId:
+                # Create
+                return self.create(txn, batch, addrs)
+
+            for addr in addrs:
+                # Loop overall addresses and determine whether to add or merge into walletId
+                existingWalletId = self.get_address_walletid(txn, addr)
+                # addressFilter = txn.get(walletId)
+                # if addressFilter is None:
+                #     continue
+                if not existingWalletId:
+                    self.put_address_walletid(txn, addr, walletId)
+                    self.put_address_map(txn, walletId, addr)
+                    print('Added %s to wallet %s' % (addr, walletId))
+                    batch.put(('walletAdd:%s' % addr).encode(), walletId)
+                elif walletId != existingWalletId:
+                    mapDelete = set()
+                    # Update all other addresses with merge
+                    for existingAddr in self.get_address_map(txn, existingWalletId):
+                        # Point addresses to existing walletId
+                        self.put_address_walletid(txn, existingAddr, walletId)
+                        # Add address to walletId set
+                        self.put_address_map(txn, walletId, existingAddr)
+                        # Delete existing walletId set
+                        mapDelete.add(existingWalletId)
+                        batch.put(('walletMerge:%s' % existingWalletId.decode()).encode(), walletId)
+                        print('Merged %s from %s into %s' % (existingAddr, existingWalletId, walletId))
+                    for delete in mapDelete:
+                        self.del_address_map(txn, delete)
+                    txn.delete(existingWalletId)
+
+# class DB(object):
+
+#     def put(self, k, v):
+#         pass
+
+# def pprint():
+#     with env.begin(write=True) as txn:
+#         cursor = txn.cursor()
+#         for k, v in cursor:
+#             print(k, v)
+
+# db = DB()
+# connect_input(db, input(1))
+# connect_input(db, input(1, 2))
+# connect_input(db, input(2))
+# connect_input(db, input(3, 2))
+# connect_input(db, input(9, 8))
+# connect_input(db, input(9, 1))
+# pprint()

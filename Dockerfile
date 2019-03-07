@@ -58,6 +58,7 @@ COPY api/* /data/api/
 COPY shared /data/shared
 COPY sync /data/sync
 COPY sync.py /data/
+COPY wallet_group /data/wallet_group
 
 WORKDIR /data
 

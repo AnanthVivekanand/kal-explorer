@@ -30,7 +30,7 @@ import socketio
 from shared import settings
 from datetime import datetime
 from sync.cache import Cache
-from shared.models import Block, Transaction, Address, AddressChanges, Utxo, Message, db, WalletGroup, WalletGroupAddress
+from shared.models import Block, Transaction, Address, AddressChanges, Utxo, Message, db, WalletGroup, WalletGroupAddress, WalletGroupAddressMerge
 
 from bitcoin.messages import msg_block, MsgSerializable
 from bitcoin.core import b2lx, lx, uint256_from_str, CBlock
@@ -45,7 +45,7 @@ if not os.path.exists('/data/explorer/blocks/'):
 if not os.path.exists('/data/explorer/chainstate/'):
     os.makedirs('/data/explorer/chainstate')
 
-from wallet_group.group import connect_input
+from wallet_group.group import WalletGroup
 
 # connect to the redis queue as an external process
 external_sio = socketio.RedisManager('redis://%s' % settings.REDIS_HOST, write_only=True)
@@ -321,17 +321,19 @@ class ChainDb(object):
                     wallets = []
                     walletsAddress = []
                     for key, value in sn.iterator(prefix=b'walletCreate:'):
-                        uid = key.decode().split(':')[1]
+                        addr = key.decode().split(':')[1]
+                        uid = value.decode()
                         wallets.append({
                             'uid': uid
                         })
                         walletsAddress.append({
                             'wallet': uid,
-                            'address': value.decode(),
+                            'address': addr,
                         })
                         deleteBatch.delete(key)
+                        self.log.info('PG wallet create %s for %s' % (uid, addr))
                     if wallets:
-                        WalletGroup.insert_many(wallets).execute(None)
+                        WalletGroup.insert_many(wallets).on_conflict_ignore().execute(None)
 
                     for key, value in sn.iterator(prefix=b'walletAdd:'):
                         addr = key.decode().split(':')[1]
@@ -339,9 +341,19 @@ class ChainDb(object):
                             'wallet': value.decode(),
                             'address': addr,
                         })
+                        self.log.info('PG wallet add %s for %s' % (value.decode(), addr))
                         deleteBatch.delete(key)
                     if walletsAddress:
                         WalletGroupAddress.insert_many(walletsAddress).execute(None)
+                    for key, value in sn.iterator(prefix=b'walletMerge:'):
+                        existingWalletId = key.decode().split(':')[1]
+                        newWalletId = value.decode()
+                        deleteBatch.delete(key)
+                        res = WalletGroupAddress.update(wallet = newWalletId).where(WalletGroupAddress.wallet == existingWalletId).execute(None)
+                        self.log.info('PG wallet merge from %s to %s (%s)' % (existingWalletId, newWalletId, res))
+#                    if walletsMerge:
+#                        WalletGroupAddressMerge.insert_many(walletsMerge).execute(None)
+#                        db.execute_sql("INSERT INTO walletgroupaddress (wallet, address) (SELECT wallet, address FROM walletgroupaddressmerge) ON CONFLICT (address) DO UPDATE SET wallet = EXCLUDED.wallet; TRUNCATE walletgroupaddressmerge")
 
     def checkutxos(self, force=False):
         if force or self.utxo_changes > 10000:
@@ -496,7 +508,7 @@ class ChainDb(object):
             self.transaction_change_count += 1
             # connect inputs to wallet group tree
             addrs = list(map(lambda x: x[0], tx_data['addresses_in'].items()))
-            connect_input(batch, addrs)
+            self.wallet_group.connect_input(batch, addrs)
         return tx_data
 
     def parse_vtx(self, vtx, wb, timestamp, bHash, bHeight):

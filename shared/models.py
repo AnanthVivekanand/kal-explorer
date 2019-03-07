@@ -104,8 +104,12 @@ class Address(BaseModel):
 
 class WalletGroupAddress(BaseModel):
     wallet = UUIDField(index=True)
-    address = TextField(index=True)
+    address = TextField(index=True, unique=True)
+
+class WalletGroupAddressMerge(BaseModel):
+    wallet = UUIDField(index=True)
+    address = TextField(index=True, unique=True)
 
 db.connect()
 # db.drop_tables([Block, Transaction, Address, AddressChanges, Message])
-db.create_tables([Block, Transaction, WalletGroup, Address, WalletGroupAddress, AddressChanges, Message, Utxo])
+db.create_tables([Block, Transaction, WalletGroup, Address, WalletGroupAddress, WalletGroupAddressMerge, AddressChanges, Message, Utxo])

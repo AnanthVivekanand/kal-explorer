@@ -107,8 +107,22 @@ def _utxo_map(block):
 
 ### Address section
 
-@app.get('/addr/{address}/balance')
+@app.get('/addr/{address}')
 async def read_address(address : str):
+    # Get balance info
+    res = await read_address_balance(address)
+    # Get wallet info
+    try:
+        record = WalletGroupAddress.get(WalletGroupAddress.address == address)
+    except WalletGroupAddress.DoesNotExist:
+        pass
+    else:
+        res['wallet'] = record.wallet
+
+    return res
+
+@app.get('/addr/{address}/balance')
+async def read_address_balance(address : str):
     try:
         record = Address.get(address=address)
     except:
@@ -148,12 +162,19 @@ async def read_wallet_groups():
 @app.get('/wallet_groups/{uid}')
 async def read_wallet_groups_uid(uid : str):
     addresses = WalletGroupAddress.select(WalletGroupAddress.address).where(WalletGroupAddress.wallet == uid)
-    return list(map(lambda address: address.address, addresses))
+    addresses = list(map(lambda address: address.address, addresses))
+    return {
+        'count': len(addresses),
+        'addresses': addresses
+    }
 
 
 @app.get('/wallet_groups/addr/{addr}')
 async def read_wallet_groups_addr(addr : str):
-    record = WalletGroupAddress.get(WalletGroupAddress.address == addr)
+    try:
+        record = WalletGroupAddress.get(WalletGroupAddress.address == addr)
+    except WalletGroupAddress.DoesNotExist:
+        return HTMLResponse(status_code=404)
     return {
         'wallet': record.wallet
     }
