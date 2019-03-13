@@ -66,7 +66,7 @@ def get_confirmations(height, block=None):
     return b.height - height
 
 def tx_to_json(tx):
-    is_coinbase = (len(tx.vin) == 0)
+    is_coinbase = (len(tx.vin) == 1 and 'coinbase' in tx.vin[0])
     return {
         'blockhash': tx.block,
         'blockheight': tx.block_height,
@@ -75,7 +75,7 @@ def tx_to_json(tx):
         'isCoinBase': is_coinbase,
         'txid': tx.txid,
         'valueOut': tx.output_value,
-        'vin': tx.addresses_in,
+        'vin': tx.vin,
         'vout': tx.addresses_out,
         'addresses_in': tx.addresses_in,
         'addresses_out': tx.addresses_out,
