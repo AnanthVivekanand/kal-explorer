@@ -19,25 +19,4 @@ ChainParams = module.ChainParams
 
 DB_NAME = 'explorer_%s' % EXP_COIN
 
-POOLS = {
-    'blazepool': {
-        'name': 'BlazePool',
-        'url': 'http://blazepool.com'
-    },
-    'zpool.ca': {
-        'name': 'Zpool',
-        'url': 'https://zpool.ca'
-    },
-    'zerg': {
-        'name': 'Zerg Pool',
-        'url': 'http://zergpool.com/'
-    },
-    'ahashpool': {
-        'name': 'A Hash Pool',
-        'url': 'https://www.ahashpool.com/'
-    },
-    'tuxtoke.life': {
-        'name': 'Tuxtoke',
-        'url': 'http://pool.tuxtoke.life'
-    }
-}
+POOLS = module.POOLS
