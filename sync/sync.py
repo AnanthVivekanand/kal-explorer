@@ -218,7 +218,7 @@ class NodeConn(Greenlet):
             gd = msg_getdata(self.ver_send)
             inv = CInv()
             inv.type = 2
-            inv.hash = lx('cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7')
+            inv.hash = bitcoin.params.GENESIS_BLOCK.GetHash()
             gd.inv.append(inv)
             self.send_message(gd)
         elif our_height < self.remote_height:

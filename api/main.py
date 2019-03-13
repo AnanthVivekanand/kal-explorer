@@ -195,16 +195,7 @@ def read_tx(txid : str):
     fee = record.input_value - record.output_value
     if fee < 0:
         fee = 0 # probably coinbase tx
-    return {
-        'txid': record.txid,
-        'block': record.block,
-        'timestamp': record.timestamp.timestamp(),
-        'input_value': record.input_value,
-        'output_value': record.output_value,
-        'fee': fee,
-        'addresses_in': record.addresses_in,
-        'addresses_out': record.addresses_out,
-    }
+    return tx_to_json(record)
 
 @app.get('/txs/{address}')
 def read_address_txs(address, beforeTime=None):

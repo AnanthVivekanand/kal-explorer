@@ -27,6 +27,7 @@ import io
 import json
 import threading
 import socketio
+from gevent.lock import BoundedSemaphore
 from shared import settings
 from datetime import datetime
 from sync.cache import Cache
@@ -144,7 +145,7 @@ class ChainDb(object):
             self.log.error("Database magic number mismatch. Data corruption or incorrect network?")
             raise RuntimeError
 
-
+        self.block_lock = BoundedSemaphore()
         self.address_changes = {}
         self.address_change_count = 0
         self.transaction_change_count = 0
@@ -572,7 +573,7 @@ class ChainDb(object):
         return block is not None
 
     def have_prevblock(self, block):
-        if self.getheight() < 0 and b2lx(block.GetHash()) == 'cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7':
+        if self.getheight() < 0 and b2lx(block.GetHash()) == b2lx(self.params.GENESIS_BLOCK.GetHash()):
             return True
         if self.haveblock(block.hashPrevBlock, False):
             return True
@@ -900,10 +901,11 @@ class ChainDb(object):
             return dt
 
     def putblock(self, block):
-        if self.haveblock(block.GetHash(), False):
-            self.log.info("Duplicate block %s submitted" % (b2lx(block.GetHash()), ))
-            return False
-        return self.putoneblock(block)
+        with self.block_lock:
+            if self.haveblock(block.GetHash(), False):
+                self.log.info("Duplicate block %s submitted" % (b2lx(block.GetHash()), ))
+                return False
+            return self.putoneblock(block)
 
     def puttxidx(self, txhash, txidx, spend=False, batch=None):
         ser_txhash = int(txhash, 16)
