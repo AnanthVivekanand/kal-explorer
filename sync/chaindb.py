@@ -418,7 +418,7 @@ class ChainDb(object):
 
     def parse_vin(self, tx, txid, tx_data, vin, idx, batch=None):
         if tx.is_coinbase() and idx == 0:
-            tx_data["vin"] = [{"coinbase": b2lx(tx.vin[0].scriptSig)[::-1]}]
+            tx_data["vin"] = [{"coinbase": b2lx(tx.vin[0].scriptSig[::-1])}]
             tx_data["addresses_in"][None] = 0
             return
         if batch:
