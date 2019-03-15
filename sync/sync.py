@@ -329,6 +329,7 @@ class NodeConn(Greenlet):
     def getheaders(self, message):
         msg = msg_getheaders()
         msg.nVersion = PROTO_VERSION
+        msg.locator.vHave = self.chaindb.getlocator()
         # msg.vHave = [bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')]
         # msg.hashstop = bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')
         self.send_message(msg)
