@@ -305,10 +305,11 @@ class ChainDb(object):
                 for key, value in self.db.iterator(prefix=b'pg_block:'):
                     data = json.loads(value.decode('utf-8'))
                     hashes.append(data['hash'])
-                    data['version'] = struct.pack('i', data['version'])
-                    data['bits'] = struct.pack('i', data['bits'])
+                    data['version'] = struct.pack('>i', data['version'])
+                    data['bits'] = struct.pack('>i', data['bits'])
                     data['coinbase'] = base64.decodebytes(data['coinbase'].encode())
                     data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
+                    data['chainwork'] = int_to_bytes(data['chainwork'])
                     blocks.append(data)
                     deleteBatch.delete(key)
                 if blocks:
@@ -623,8 +624,7 @@ class ChainDb(object):
             # store metadata related to this block
             blkmeta = BlkMeta()
             blkmeta.height = prevmeta.height + 1
-            blkmeta.work = (prevmeta.work +
-                    uint256_from_compact(block.nBits))
+            blkmeta.work = (prevmeta.work + uint256_from_compact(block.nBits))
             batch.put(('blkmeta:'+ser_hash).encode(), blkmeta.serialize())
 
             # store list of blocks at this height
@@ -875,6 +875,7 @@ class ChainDb(object):
                 'height': height,
                 'bits': block.nBits,
                 'nonce': block.nNonce,
+                'chainwork': blkmeta.work,
                 'size': len(block.serialize()),
                 'hash': bHash,
                 'coinbase': base64.encodebytes(block.vtx[0].vin[0].scriptSig).decode(),

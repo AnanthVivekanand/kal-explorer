@@ -30,6 +30,8 @@ from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from bitcoin.core.serialize import uint256_from_str, uint256_to_str, uint256_from_compact
+from shared.utils import bytes_to_int
 
 redis = Redis(settings.REDIS_HOST)
 
@@ -429,3 +431,69 @@ def read_status(q=None):
 def broadcast(data : Broadcast):
     redis.publish('broadcast', data.data)
     return data
+
+@app.get('/getnethash')
+def nethash():
+    # lookup = 45
+    # count = Block.select().count(None)
+    # if lookup > count:
+    #     lookup = count
+
+    # pb = Block.select().where(Block.orphaned == False).order_by(Block.height.desc()).get()
+    # pb0 = pb
+    # min_time = pb.timestamp
+    # max_time = pb.timestamp
+    # for x in range(0, lookup):
+    #     pb0 = Block.select().where(Block.orphaned == False, Block.height == pb0.height - 1).order_by(Block.height.desc()).get()
+    #     time = pb0.timestamp
+    #     min_time = min(time, min_time)
+    #     max_time = max(time, max_time)
+
+    # if min_time == max_time:
+    #     return 0
+
+    # CBlockIndex *pb0 = pb;
+    # int64_t minTime = pb0->GetBlockTime();
+    # int64_t maxTime = minTime;
+    # for (int i = 0; i < lookup; i++) {
+    #     pb0 = pb0->pprev;
+    #     int64_t time = pb0->GetBlockTime();
+    #     minTime = std::min(time, minTime);
+    #     maxTime = std::max(time, maxTime);
+    # }
+    # pb0 = Block.select().where(Block.height == 0).get()
+    # pb = Block.select().where(Block.height == 45).get()
+    
+    # work_diff = bytes_to_int(pb.chainwork) - bytes_to_int(pb0.chainwork)
+    # time_diff = (max_time - min_time)
+    # time_diff = time_diff.total_seconds()
+
+    # print(work_diff / time_diff)
+
+    # arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
+    # int64_t timeDiff = maxTime - minTime;
+
+    # return workDiff.getdouble() / timeDiff;
+
+    return get_latest_block().hash_rate()
+
+# print(uint256_from_str(bytes.fromhex('0500050000000000000000000000000000000000000000000000000000000000')))
+# print(uint256_from_compact(0x1e0ffff0))
+# print(uint256_from_compact(504365040))
+# print(uint256_from_compact(0x01123456))
+# bnTarget = uint256_from_compact(0x1e03fffc)
+# print(((2**256 - bnTarget - 1) / (bnTarget+1)) + 1)
+# prev = 0
+# for block in Block.select().order_by(Block.height):
+#     work = int('FFFF0000000000000000000000000000000000000000000000000000', 16) / bytes_to_int(block.chainwork)
+#     # diff = int('FFFF0000000000000000000000000000000000000000000000000000', 16) / bytes_to_int(block.bits)
+
+#     bnTarget = uint256_from_compact(bytes_to_int(block.bits))
+#     diff = int('FFFF0000000000000000000000000000000000000000000000000000', 16) / bnTarget
+#     hashRate = diff * (2**32 / 60)
+#     print(int(diff * 2 ** 32), diff, block.hash_rate())
+#     # print(work, block.height)
+#     # if work < prev:
+#     #     print(':O', work, block.height)
+#     prev = work
+#     # print('ok')
