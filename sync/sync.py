@@ -46,14 +46,9 @@ from bitcoin.core import lx, b2lx
 from sync.chaindb import ChainDb
 from bitcoin.core.script import CScript
 from sync.mempool import MemPool
+from shared.settings import PROTO_VERSION, MIN_PROTO_VERSION, CADDR_TIME_VERSION, NOBLKS_VERSION_START, BIP0031_VERSION
 
-PROTO_VERSION = 70002
-MIN_PROTO_VERSION = 70002
-CADDR_TIME_VERSION = 31402
-NOBLKS_VERSION_START = 60002
-NOBLKS_VERSION_END = 70018
 MY_SUBVERSION = b"/KalExplorer:0.1.0/"
-BIP0031_VERSION = 60000
 
 redis = Redis('%s' % settings.REDIS_HOST)
 debugnet = False

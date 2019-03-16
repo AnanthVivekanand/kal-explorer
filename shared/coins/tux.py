@@ -22,6 +22,13 @@ class ChainParams(bitcointx.core.CoreChainParams):
     }
     BECH32_HRP = 'tux'
 
+
+PROTO_VERSION = 70002
+MIN_PROTO_VERSION = 70002
+CADDR_TIME_VERSION = 31402
+NOBLKS_VERSION_START = 60002
+BIP0031_VERSION = 60000
+
 POOLS = {
     'blazepool': {
         'name': 'BlazePool',
