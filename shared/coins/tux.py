@@ -21,3 +21,33 @@ class ChainParams(bitcointx.core.CoreChainParams):
         'EXTENDED_PRIVKEY': b'\x04\x88\xad\xe4'
     }
     BECH32_HRP = 'tux'
+
+
+PROTO_VERSION = 70002
+MIN_PROTO_VERSION = 70002
+CADDR_TIME_VERSION = 31402
+NOBLKS_VERSION_START = 60002
+BIP0031_VERSION = 60000
+
+POOLS = {
+    'blazepool': {
+        'name': 'BlazePool',
+        'url': 'http://blazepool.com'
+    },
+    'zpool.ca': {
+        'name': 'Zpool',
+        'url': 'https://zpool.ca'
+    },
+    'zerg': {
+        'name': 'Zerg Pool',
+        'url': 'http://zergpool.com/'
+    },
+    'ahashpool': {
+        'name': 'A Hash Pool',
+        'url': 'https://www.ahashpool.com/'
+    },
+    'tuxtoke.life': {
+        'name': 'Tuxtoke',
+        'url': 'http://pool.tuxtoke.life'
+    }
+}

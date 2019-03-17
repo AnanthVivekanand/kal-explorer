@@ -17,6 +17,7 @@ export class AddressComponent implements OnInit {
     balance: Number;
     sent : Number;
     received : Number;
+    walletId : string;
     sub: any;
     address: string;
     txs : any[] = [];
@@ -45,10 +46,11 @@ export class AddressComponent implements OnInit {
         this.route.params.subscribe(params => {
             this.address = params['address'];
             this.titleService.setTitle(this.address);
-            this.addressService.getBalance(this.address).then(data => {
+            this.addressService.getInfo(this.address).then(data => {
                 this.balance = data.balance / environment.coin.division;
                 this.sent = data.sent / environment.coin.division;
                 this.received = data.received / environment.coin.division;
+                this.walletId = data.wallet;
             });
             this.txs = [];
             this.moreTxs();
@@ -65,6 +67,10 @@ export class AddressComponent implements OnInit {
             }
             this.lastTime = data.lastTime;
         });
+    }
+
+    goWalletGroup(wallet : string) {
+        this.router.navigate(['wallet_group', wallet]);
     }
 
 };

@@ -24,6 +24,7 @@ if __name__ == "__main__":
     params = P()
     bitcoin.params.MESSAGE_START = params.NETMAGIC
     bitcoin.params.BASE58_PREFIXES = params.BASE58_PREFIXES
+    bitcoin.params.GENESIS_BLOCK = params.GENESIS_BLOCK
 
     mempool = MemPool(logger)
     chaindb = ChainDb(logger, mempool, params)

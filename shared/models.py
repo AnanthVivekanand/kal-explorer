@@ -1,8 +1,11 @@
 import struct
 from shared import settings
-from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, FloatField, BigIntegerField, BlobField, TextField, BooleanField
+from peewee import Model, PostgresqlDatabase, IntegerField, CharField, DateTimeField, \
+FloatField, BigIntegerField, BlobField, TextField, BooleanField, UUIDField, ForeignKeyField
 from playhouse.postgres_ext import BinaryJSONField
 from shared.settings import POOLS
+from bitcoin.core.serialize import uint256_from_compact
+from shared.utils import bytes_to_int
 
 db = PostgresqlDatabase(settings.DB_NAME, user=settings.DB_USER, password=settings.DB_PASS, host=settings.DB_HOST, port=settings.DB_PORT)
 
@@ -21,9 +24,15 @@ class Block(BaseModel):
     version = BlobField()
     bits = BlobField()
     nonce = BigIntegerField()
+    chainwork = BlobField()
     coinbase = BlobField()
     tx_count = IntegerField()
     orphaned = BooleanField(default=False, index=True)
+
+    def hash_rate(self):
+        bnTarget = uint256_from_compact(bytes_to_int(self.bits))
+        diff = int('FFFF0000000000000000000000000000000000000000000000000000', 16) / bnTarget
+        return int(diff * (2**32 / 60))
 
     def to_json(self):
         pool = None
@@ -84,6 +93,9 @@ class AddressChanges(BaseModel):
     sent_change = BigIntegerField()
     received_change = BigIntegerField()
 
+class WalletGroup(BaseModel):
+    uid = UUIDField(unique=True)
+
 class Address(BaseModel):
     address = TextField(unique=True, index=True)
     balance = BigIntegerField()
@@ -98,6 +110,14 @@ class Address(BaseModel):
             'received': self.received,
         }
 
+class WalletGroupAddress(BaseModel):
+    wallet = UUIDField(index=True)
+    address = TextField(index=True, unique=True)
+
+class WalletGroupAddressMerge(BaseModel):
+    wallet = UUIDField(index=True)
+    address = TextField(index=True, unique=True)
+
 db.connect()
 # db.drop_tables([Block, Transaction, Address, AddressChanges, Message])
-db.create_tables([Block, Transaction, Address, AddressChanges, Message, Utxo])
+db.create_tables([Block, Transaction, WalletGroup, Address, WalletGroupAddress, WalletGroupAddressMerge, AddressChanges, Message, Utxo])

@@ -46,14 +46,9 @@ from bitcoin.core import lx, b2lx
 from sync.chaindb import ChainDb
 from bitcoin.core.script import CScript
 from sync.mempool import MemPool
+from shared.settings import PROTO_VERSION, MIN_PROTO_VERSION, CADDR_TIME_VERSION, NOBLKS_VERSION_START, BIP0031_VERSION
 
-PROTO_VERSION = 70002
-MIN_PROTO_VERSION = 70002
-CADDR_TIME_VERSION = 31402
-NOBLKS_VERSION_START = 60002
-NOBLKS_VERSION_END = 70018
 MY_SUBVERSION = b"/KalExplorer:0.1.0/"
-BIP0031_VERSION = 60000
 
 redis = Redis('%s' % settings.REDIS_HOST)
 debugnet = False
@@ -218,7 +213,7 @@ class NodeConn(Greenlet):
             gd = msg_getdata(self.ver_send)
             inv = CInv()
             inv.type = 2
-            inv.hash = lx('cf7938a048f1442dd34f87ce56d3e25455b22a44f676325f1ae8c7a33d0731c7')
+            inv.hash = bitcoin.params.GENESIS_BLOCK.GetHash()
             gd.inv.append(inv)
             self.send_message(gd)
         elif our_height < self.remote_height:
@@ -329,6 +324,7 @@ class NodeConn(Greenlet):
     def getheaders(self, message):
         msg = msg_getheaders()
         msg.nVersion = PROTO_VERSION
+        msg.locator.vHave = self.chaindb.getlocator()
         # msg.vHave = [bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')]
         # msg.hashstop = bytearray.fromhex('2ada80bf415a89358d697569c96eb98cdbf4c3b8878ac5722c01284492e27228')
         self.send_message(msg)
